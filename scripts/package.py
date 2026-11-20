@@ -4,7 +4,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import json,hashlib,re,subprocess,sys
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.2.0'
+VERSION='0.2.1'
 EXCLUDED={'.git','Library','Temp','Obj','Logs','UserSettings','.vs','__pycache__','Builds','dist','evidence'}
 def source_files():
  for p in ROOT.rglob('*'):
@@ -38,6 +38,8 @@ def main():
    z.writestr(prefix+'verification/delivery.json',manifest)
    for fps,r in reports.items():z.writestr(prefix+f'verification/qa{fps}.json',json.dumps(r,ensure_ascii=False,indent=2))
    for p in sorted((ROOT/'evidence/qa60').glob('*.png')):z.write(p,prefix+'verification/screenshots/'+p.name)
+   audio=ROOT/'evidence/qa60/solfeggio-scale.wav'
+   if audio.exists():z.write(audio,prefix+'verification/solfeggio-scale.wav')
  delivery['archives']=[dict(name=p.name,bytes=p.stat().st_size,sha256=sha(p)) for p in (skill,windows)]
  (out/'delivery.json').write_text(json.dumps(delivery,ensure_ascii=False,indent=2),encoding='utf-8')
  print(json.dumps(delivery,ensure_ascii=False,indent=2))

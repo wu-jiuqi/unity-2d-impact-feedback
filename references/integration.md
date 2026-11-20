@@ -8,7 +8,7 @@
 using ImpactFeedback;
 
 var presenter = gameObject.AddComponent<ImpactPresenter>();
-presenter.Profile = JsonUtility.FromJson<ImpactProfile>(profileJson);
+presenter.Profile = ImpactProfile.FromJson(profileJson);
 presenter.Profile.Clamp();
 presenter.Initialize(brickVisual, ballTransform, camera, particleSprites,
                      hitClip, yarnTexture);
@@ -69,3 +69,9 @@ RuleState.cs只改命名空间；LevelData默认球数、间隔、球速及GameS
 `LaunchHostAdapter.cs` 把原BallBody.Initialize／Deactivate接到隔离物理场景，并关闭展馆不存在的目标、商店、机关状态；不改射击准入、排队、缓存或方向算法。展馆使用均匀WorldScale=.6把源坐标与速度映射到展示区，源炮口位置与方向表达式保持原样。输入6像素判定在屏幕空间中不缩放。
 
 复用原实时连发：前一组仍在飞行时可按0.55模拟秒冷却继续发射；在待发队列或冷却中允许缓存一次松手，再一次额外松手不覆盖缓存。对象池按原整组预留规则扩展，没有额外的5个在飞球上限。暂停与重置清除缓存，不会自动发射。
+
+## 音阶声音
+
+SolfeggioScale为八个固定频率的短促乐音创建PCM AudioClip，所有音符时长相同，使用包络避免爆音；音频12声部共用原Presenter。音阶声部播放pitch=1，LastPitch是当前音符相对do的频率倍率，仅作读数。实际发声事件才推进音阶，不把被音符间隔门限合并的碰撞计入升调。其余命中事件照常触发视觉反馈。ResetNotes仅清理音阶计数，不改GameSession的任何发射状态。
+
+旧预设通过ImpactProfile.FromJson加载，缺失scaleNotes/noteIntervalMs/noteVolume时分别补8/70/.8；显式0音量继续静音。历史pitchStep/pitchMax不参与音阶计算。

@@ -14,8 +14,8 @@ namespace ImpactFeedback.Gallery {
   public GalleryLane Baseline{get;private set;}public GalleryLane Active{get;private set;}
   public bool Paused{get;private set;}public int Mode{get;private set;}=1;public Effect Selected{get;private set;}
   public static readonly string[] Names={"闪白","拖尾","震屏","顿帧","慢镜","碎片","挤压","升调"};
-  static readonly string[] Hints={"命中表面短促混白，保留透明轮廓。","双层毛线描绘球路，保留碰撞折返点。","首下清晰冲击并衰减回弹，HUD与瞄准稳定。","真实暂停演示侧物理；界面和恢复计时继续。","降低演示侧物理时钟倍率，结束后恢复。","原版液滴甩出后落为颜料色斑，固定128槽。","沿受力方向压缩，只改变视觉子层。","连续命中逐次升调；间隔超过阈值后重置。"};
-  RectTransform content,parameters,stage;Text status,message,title,description,modeLabel,leftLabel,rightLabel,pauseLabel,eventLabel,sequenceLabel;Text[] effectLabels=new Text[8],switchLabels=new Text[8],colourLabels=new Text[5];
+  static readonly string[] Hints={"命中表面短促混白，保留透明轮廓。","双层毛线描绘球路，保留碰撞折返点。","首下清晰冲击并衰减回弹，HUD与瞄准稳定。","真实暂停演示侧物理；界面和恢复计时继续。","降低演示侧物理时钟倍率，结束后恢复。","原版液滴甩出后落为颜料色斑，固定128槽。","沿受力方向压缩，只改变视觉子层。","连续命中：do re mi fa so la xi 高音do；断连重置。"};
+  RectTransform content,parameters,stage;Text status,message,title,description,modeLabel,leftLabel,rightLabel,pauseLabel,eventLabel,sequenceLabel,noteReadout;RectTransform noteControls;Text[] effectLabels=new Text[8],switchLabels=new Text[8],colourLabels=new Text[5];
   int colour;bool sequences=true;
   int screenW,screenH;bool focused=true;ImpactFeedback.ProjectLaunch.ProjectBattleInput projectInput;ImpactKind kind=ImpactKind.Special;
   readonly List<Parameter> rows=new List<Parameter>();
@@ -35,7 +35,7 @@ namespace ImpactFeedback.Gallery {
    if(FindFirstObjectByType<EventSystem>()==null)new GameObject("EventSystem",typeof(EventSystem),typeof(StandaloneInputModule));
    content=A.Rect(canvas.transform,"1600 x 900 content",0,0,1600,900);content.anchorMin=content.anchorMax=Vector2.one*.5f;content.pivot=Vector2.one*.5f;content.anchoredPosition=Vector2.zero;
    A.Image(content,"decor_cat_head",30,22,70,66);A.Label(content,"碰撞反馈实验室",112,20,540,55,36);A.Label(content,"IMPACT FEEDBACK  /  8 种手感，边玩边调",114,73,660,30,18,A.Muted);
-   A.Label(content,"Unity 2D · Windows · v0.2.0",1190,42,370,35,18,A.Muted);
+   A.Label(content,"Unity 2D · Windows · v0.2.1",1190,42,370,35,18,A.Muted);
    for(int i=0;i<5;i++){int k=i;colourLabels[i]=A.Button(content,FiveColourBricks.Names[i],782+i*76,76,70,38,()=>SetColour(k)).GetComponentInChildren<Text>();}
    A.Image(content,"card_cream_help",24,126,248,720,true);A.Label(content,"效果目录",46,145,210,38,25);
    for(int i=0;i<8;i++){int k=i;var b=A.Button(content,Names[i],42,197+i*61,164,52,()=>Select((Effect)k));effectLabels[i]=b.GetComponentInChildren<Text>();
@@ -56,12 +56,13 @@ namespace ImpactFeedback.Gallery {
    status=A.Label(content,"",300,760,850,70,16);message=A.Label(content,"沿用游戏内拖动瞄准、松手发射；支持连发与一次输入缓存。",300,830,850,42,18,A.Muted);
    A.Image(content,"card_cream_help",1176,126,400,720,true);
    title=A.Label(content,"",1200,144,350,40,27);description=A.Label(content,"",1200,191,350,42,17,A.Muted);description.name="Effect explanation";parameters=A.Rect(content,"Parameter rows",1200,238,350,420);
+   noteControls=A.Rect(content,"Scale controls",1195,632,360,38);noteReadout=A.Label(noteControls,"",0,0,175,38,18);A.Button(noteControls,"重置到do",185,0,170,38,()=>Active.Presenter.ResetNotes());
    A.Button(content,"恢复单项",1195,680,170,48,ResetSelected);A.Button(content,"教学强化",1377,680,170,48,()=>SetProfile(ImpactProfile.Teaching()));
    A.Button(content,"保存预设",1195,741,170,48,Save);A.Button(content,"载入预设",1377,741,170,48,Load);
    A.Label(content,"配置使用 JSON，可随 skill 带回项目。",1200,800,350,28,16,A.Muted);
    RefreshParameters();Resize();
   }
-  public void Select(Effect e){Selected=e;RefreshParameters();Apply();}
+  public void Select(Effect e){Active.Presenter.ResetNotes();Selected=e;RefreshParameters();Apply();}
   public void SetMode(int mode){Mode=mode;Apply();Resize();ResetScene();}
   void Apply(){Profile.Clamp();Baseline.Presenter.Profile=Active.Presenter.Profile=Profile;
    Active.Presenter.Selected=Selected;Active.Presenter.ForceSelected=Mode!=2;Active.Kind=Baseline.Kind=kind;
@@ -76,7 +77,7 @@ namespace ImpactFeedback.Gallery {
   void Add(string name,string unit,float min,float max,Func<ImpactProfile,float> get,Action<ImpactProfile,float> set,bool integer=false){rows.Add(new Parameter{name=name,unit=unit,min=min,max=max,get=get,set=set,integer=integer});}
   void RefreshParameters(){
    foreach(Transform child in parameters){child.gameObject.SetActive(false);Destroy(child.gameObject);}rows.Clear();title.text=Names[(int)Selected]+" · 实时调参";
-   description.text=Hints[(int)Selected];
+   description.text=Hints[(int)Selected];noteControls.gameObject.SetActive(Selected==Effect.Pitch);
    switch(Selected){
     case Effect.Flash:Add("混白强度","",0,1,p=>p.flashStrength,(p,v)=>p.flashStrength=v);Add("持续时间","ms",5,400,p=>p.flashMs,(p,v)=>p.flashMs=v,true);break;
     case Effect.Trail:Add("最大长度","单位",.1f,5,p=>p.trailLength,(p,v)=>p.trailLength=v);Add("线芯宽度","单位",.02f,.6f,p=>p.trailWidth,(p,v)=>p.trailWidth=v);Add("保留寿命","s",.03f,1,p=>p.trailLife,(p,v)=>p.trailLife=v);Add("透明度","",0,1,p=>p.trailOpacity,(p,v)=>p.trailOpacity=v);break;
@@ -85,7 +86,7 @@ namespace ImpactFeedback.Gallery {
     case Effect.SlowMotion:Add("时间倍率","倍",.05f,1,p=>p.slowScale,(p,v)=>p.slowScale=v);Add("持续时间","ms",0,1500,p=>p.slowMs,(p,v)=>p.slowMs=v,true);break;
     case Effect.Fragments:Add("单次数量","个",0,64,p=>p.fragmentCount,(p,v)=>p.fragmentCount=Mathf.RoundToInt(v),true);Add("液滴飞行速度","",.1f,12,p=>p.fragmentSpeed,(p,v)=>p.fragmentSpeed=v);Add("色斑大小","比例",.03f,.5f,p=>p.fragmentSize,(p,v)=>p.fragmentSize=v);Add("存在寿命","s",.1f,3,p=>p.fragmentLife,(p,v)=>p.fragmentLife=v);break;
     case Effect.Squash:Add("挤压幅度","",0,.45f,p=>p.squashAmount,(p,v)=>p.squashAmount=v);Add("回弹时长","ms",50,1000,p=>p.squashMs,(p,v)=>p.squashMs=v,true);break;
-    case Effect.Pitch:Add("每次升调","",0,.15f,p=>p.pitchStep,(p,v)=>p.pitchStep=v);Add("最高音高","倍",1,2,p=>p.pitchMax,(p,v)=>p.pitchMax=v);Add("间隔重置","ms",200,5000,p=>p.pitchResetMs,(p,v)=>p.pitchResetMs=v,true);break;
+    case Effect.Pitch:Add("最高音阶","级",1,8,p=>p.scaleNotes,(p,v)=>p.scaleNotes=Mathf.RoundToInt(v),true);Add("音符最小间隔","ms",30,250,p=>p.noteIntervalMs,(p,v)=>p.noteIntervalMs=v,true);Add("断连重置","ms",200,5000,p=>p.pitchResetMs,(p,v)=>p.pitchResetMs=v,true);Add("音阶音量","",0,1,p=>p.noteVolume,(p,v)=>p.noteVolume=v);break;
    }
    Add("演示音量","",0,1,p=>p.volume,(p,v)=>p.volume=v);
    for(int i=0;i<rows.Count;i++)ParameterRow(rows[i],i*74);
@@ -115,7 +116,7 @@ namespace ImpactFeedback.Gallery {
   void OnGUI(){projectInput?.ProcessUnityGUI();}
   public void ResetScene(){projectInput?.Cancel();SetPaused(false);Baseline.Reset();Active.Reset();}
   public void Save(){try{Profile.Clamp();var json=JsonUtility.ToJson(Profile,true);File.WriteAllText(PresetPath+".tmp",json);if(File.Exists(PresetPath))File.Replace(PresetPath+".tmp",PresetPath,null);else File.Move(PresetPath+".tmp",PresetPath);message.text="已保存："+PresetPath;}catch(Exception e){message.text="保存失败："+e.Message;}}
-  public void Load(){try{var p=JsonUtility.FromJson<ImpactProfile>(File.ReadAllText(PresetPath));if(p==null||p.schemaVersion!=1)throw new InvalidDataException("不支持的参数版本");SetProfile(p);message.text="已载入自定义预设";}catch(Exception e){message.text="载入失败："+e.Message;}}
+  public void Load(){try{SetProfile(ImpactProfile.FromJson(File.ReadAllText(PresetPath)));message.text="已载入自定义预设";}catch(Exception e){message.text="载入失败："+e.Message;}}
   void Resize(){screenW=Screen.width;screenH=Screen.height;float scale=Mathf.Min(screenW/1600f,screenH/900f);content.localScale=Vector3.one*scale;
    var corners=new Vector3[4];stage.GetWorldCorners(corners);float x=corners[0].x/screenW,y=corners[0].y/screenH,w=(corners[2].x-corners[0].x)/screenW,h=(corners[2].y-corners[0].y)/screenH;
    Baseline.Camera.enabled=Mode==1;Baseline.Camera.rect=new Rect(x,y,w*.48f,h);Active.Camera.rect=Mode==1?new Rect(x+w*.52f,y,w*.48f,h):new Rect(x+w*.18f,y,w*.64f,h);
@@ -125,7 +126,7 @@ namespace ImpactFeedback.Gallery {
    Baseline.Tick(Time.unscaledTime,dt,paused);Active.Tick(Time.unscaledTime,dt,paused);
    bool editing=EventSystem.current!=null&&EventSystem.current.currentSelectedGameObject!=null&&EventSystem.current.currentSelectedGameObject.GetComponent<InputField>()!=null;
    if(!editing&&Input.GetKeyDown(KeyCode.Space))Launch();if(!editing&&Input.GetKeyDown(KeyCode.P))SetPaused(!Paused);
-   var clock=Active.Presenter.Clock;status.text="本组已发射 "+Active.SpawnedThisVolley+"/5 · 飞行 "+Active.ActiveBalls+" · 缓存 "+(Active.Production.HasBufferedShot?1:0)+" · 补齐 "+Active.Refills+" · 命中 "+Active.Presenter.ImpactCount+" · 音高 "+Active.Presenter.LastPitch.ToString("0.00")+"×\n顿帧 "+Profile.hitStopMs.ToString("0")+" / 实际 "+clock.ActualStopMs.ToString("0.0")+" ms · 时间倍率 "+clock.Scale.ToString("0.00")+"× · 震屏峰值 "+Active.Presenter.PeakShakePixels.ToString("0.0")+" px\n液滴/色斑 "+Active.Presenter.ActiveParticles+"/128 · 已落地 "+Active.Presenter.LandedParticles;
+   noteReadout.text="当前："+Active.Presenter.LastNote+"  "+(Active.Presenter.LastNoteIndex+1)+"/8";var clock=Active.Presenter.Clock;status.text="本组已发射 "+Active.SpawnedThisVolley+"/5 · 飞行 "+Active.ActiveBalls+" · 缓存 "+(Active.Production.HasBufferedShot?1:0)+" · 补齐 "+Active.Refills+" · 命中 "+Active.Presenter.ImpactCount+" · 音符 "+Active.Presenter.LastNote+"\n顿帧 "+Profile.hitStopMs.ToString("0")+" / 实际 "+clock.ActualStopMs.ToString("0.0")+" ms · 时间倍率 "+clock.Scale.ToString("0.00")+"× · 震屏峰值 "+Active.Presenter.PeakShakePixels.ToString("0.0")+" px\n液滴/色斑 "+Active.Presenter.ActiveParticles+"/128 · 已落地 "+Active.Presenter.LandedParticles;
 
   }
   void OnApplicationFocus(bool f){projectInput?.Cancel();focused=f;if(!f){Baseline?.Presenter.ResetPresentation();Active?.Presenter.ResetPresentation();}}

@@ -8,15 +8,29 @@ using UnityEngine.UI;
 namespace ImpactFeedback.Gallery {
  public sealed class GalleryQA:MonoBehaviour {
   [Serializable]class Check{public string name;public bool passed;}
-  [Serializable]class Report{public string unity,assemblySha256,projectRuleTests,version="0.2.0";public int configuredFps,passed,failed;public float shakePeakPixels;public List<Check> checks=new List<Check>();}
+  [Serializable]class Report{public string unity,assemblySha256,projectRuleTests,version="0.2.1";public int configuredFps,passed,failed;public float shakePeakPixels;public float[] scaleFrequencies;public List<Check> checks=new List<Check>();}
   Report report=new Report();string folder;ImpactGallery g;
   void C(bool passed,string name){report.checks.Add(new Check{name=name,passed=passed});if(passed)report.passed++;else report.failed++;Debug.Log("GALLERY_QA "+(passed?"PASS ":"FAIL ")+name);}
   string Arg(string key,string fallback){var a=Environment.GetCommandLineArgs();int i=Array.IndexOf(a,key);return i>=0&&i+1<a.Length?a[i+1]:fallback;}
   void Capture(string name){GalleryCapture.Save(g,Path.Combine(folder,name+".png"));}
+  void VerifyScaleAudio(){
+   var bank=new SolfeggioScale();float[] expected={261.625565f,293.664768f,329.627557f,349.228231f,391.995436f,440,493.883301f,523.251131f};report.scaleFrequencies=new float[8];
+   int perNote=Mathf.RoundToInt(SolfeggioScale.SampleRate*.26f);var combined=new float[perNote*8];
+   for(int n=0;n<8;n++){
+    var clip=bank.Clip(n);var data=new float[clip.samples];clip.GetData(data,0);int first=-1,last=0,crossings=0;float peak=0;
+    for(int i=1;i<data.Length;i++){peak=Mathf.Max(peak,Mathf.Abs(data[i]));if(i<SolfeggioScale.SampleRate*.015f||i>SolfeggioScale.SampleRate*.16f)continue;if(data[i-1]<=0&&data[i]>0){if(first<0)first=i;last=i;crossings++;}}
+    float measured=(crossings-1)*SolfeggioScale.SampleRate/(float)(last-first);report.scaleFrequencies[n]=measured;
+    C(Mathf.Abs(measured-expected[n])/expected[n]<.005f,"rendered audio frequency matches "+SolfeggioScale.Names[n]);C(peak<.5f&&Mathf.Abs(data[0])<.0001f&&Mathf.Abs(data[data.Length-1])<.001f,"note envelope is bounded with clean attack/release: "+SolfeggioScale.Names[n]);
+    System.Array.Copy(data,0,combined,n*perNote,data.Length);
+   }
+   using(var writer=new BinaryWriter(File.Create(Path.Combine(folder,"solfeggio-scale.wav")))){
+    writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));writer.Write(36+combined.Length*2);writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVEfmt "));writer.Write(16);writer.Write((short)1);writer.Write((short)1);writer.Write(SolfeggioScale.SampleRate);writer.Write(SolfeggioScale.SampleRate*2);writer.Write((short)2);writer.Write((short)16);writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));writer.Write(combined.Length*2);foreach(float sample in combined)writer.Write((short)(Mathf.Clamp(sample,-1,1)*32767));
+   }bank.Dispose();
+  }
   IEnumerator Start(){
    folder=Arg("--qa-out",Path.Combine(Application.persistentDataPath,"qa"));Directory.CreateDirectory(folder);report.unity=Application.unityVersion;report.configuredFps=int.Parse(Arg("--qa-fps","60"));Application.targetFrameRate=report.configuredFps;
    using(var hash=SHA256.Create())report.assemblySha256=BitConverter.ToString(hash.ComputeHash(File.ReadAllBytes(typeof(ImpactGallery).Assembly.Location))).Replace("-","").ToLowerInvariant();
-   yield return null;g=ImpactGallery.Instance;g.ResetScene();
+   yield return null;g=ImpactGallery.Instance;g.ResetScene();VerifyScaleAudio();
    report.projectRuleTests=ImpactFeedback.ProjectLaunch.RuleSelfTests.RunAll();C(report.projectRuleTests.StartsWith("PASS"),"unchanged project RuleState self-tests pass");
    var shallow=ImpactFeedback.ProjectLaunch.GameSession.NormalizeAimDirection(new Vector2(1,.001f));C(Mathf.Abs(Mathf.Atan2(shallow.y,shallow.x)*Mathf.Rad2Deg-12)<.001f,"production minimum launch angle remains 12 degrees");
    C(!g.Active.Production.TryShoot(Vector2.down)&&!g.Active.Production.TryShoot(Vector2.zero),"production rejects downward and zero-length shots");
@@ -77,12 +91,19 @@ namespace ImpactFeedback.Gallery {
    C(g.Active.Refills>beforeRefill&&g.Active.Bricks.Length==15,"refill reuses the original fifteen cells");
    g.SetPaused(true);var frozen=new Vector2[5];for(int i=0;i<5;i++)frozen[i]=g.Active.Balls[i].position;int frame=brick.Sequence.FrameIndex;yield return new WaitForSecondsRealtime(.12f);
    bool fixedAll=true;for(int i=0;i<5;i++)fixedAll&=g.Active.Balls[i].position==frozen[i];C(fixedAll&&frame==brick.Sequence.FrameIndex,"pause freezes all five bodies and sequence clocks");g.SetPaused(false);g.ResetScene();
-   g.SetMode(2);g.Profile.pitchResetMs=200;g.Active.Presenter.Hit(Vector2.zero,Vector2.up,Color.cyan,ImpactKind.Hit);g.Active.Presenter.Hit(Vector2.zero,Vector2.up,Color.cyan,ImpactKind.Hit);
-   C(g.Active.Presenter.LastPitch>1&&g.Active.Presenter.LastPitch<=g.Profile.pitchMax,"successive contacts raise pitch within its cap");yield return new WaitForSecondsRealtime(.25f);g.Active.Presenter.Hit(Vector2.zero,Vector2.up,Color.cyan,ImpactKind.Hit);C(g.Active.Presenter.LastPitch==1,"pitch resets after its configured gap");
+   g.SetMode(1);g.Select(Effect.Pitch);g.Profile.pitchResetMs=200;g.Active.Presenter.ResetNotes();
+   for(int n=0;n<8;n++){if(n>0)yield return new WaitForSecondsRealtime(.085f);g.Active.Presenter.Hit(Vector2.zero,Vector2.up,Color.cyan,ImpactKind.Hit);C(g.Active.Presenter.LastNoteIndex==n,"successive audible contacts advance through "+SolfeggioScale.Names[n]);}
+   yield return new WaitForSecondsRealtime(.085f);g.Active.Presenter.Hit(Vector2.zero,Vector2.up,Color.cyan,ImpactKind.Hit);C(g.Active.Presenter.LastNoteIndex==7&&Mathf.Abs(g.Active.Presenter.LastPitch-2)<.001f,"ascending scale holds at the upper do octave");
+   g.Active.Presenter.ResetNotes();g.Active.Presenter.Hit(Vector2.zero,Vector2.up,Color.cyan,ImpactKind.Hit);int played=g.Active.Presenter.NotesPlayed;g.Active.Presenter.Hit(Vector2.zero,Vector2.up,Color.cyan,ImpactKind.Hit);C(g.Active.Presenter.NotesPlayed==played&&g.Active.Presenter.LastNoteIndex==0,"coalesced dense contacts do not silently skip scale notes");
+   yield return new WaitForSecondsRealtime(.085f);g.Active.Presenter.Hit(Vector2.zero,Vector2.up,Color.cyan,ImpactKind.Hit);C(g.Active.Presenter.LastNoteIndex==1,"the next audible contact continues at re after a merged hit");
+   yield return new WaitForSecondsRealtime(.25f);g.Active.Presenter.Hit(Vector2.zero,Vector2.up,Color.cyan,ImpactKind.Hit);C(g.Active.Presenter.LastNoteIndex==0,"scale resets to do after its configured gap");
+   g.Profile.pitch=false;g.Active.Presenter.ResetNotes();g.Active.Presenter.Hit(Vector2.zero,Vector2.up,Color.cyan,ImpactKind.Hit);yield return new WaitForSecondsRealtime(.085f);g.Active.Presenter.Hit(Vector2.zero,Vector2.up,Color.cyan,ImpactKind.Hit);C(g.Active.Presenter.LastNoteIndex==0,"switching off scale ascent keeps a fixed do for comparison");g.Profile.pitch=true;
    string original=File.Exists(g.PresetPath)?File.ReadAllText(g.PresetPath):null;g.Select(Effect.HitStop);yield return null;
    GameObject.Find("Value 顿帧时长").GetComponent<InputField>().onEndEdit.Invoke("100");C(g.Profile.hitStopMs==100,"numeric input commits exact milliseconds");
    g.Profile.hitStopMs=137;g.Save();g.Profile.hitStopMs=1;g.Load();C(Mathf.Abs(g.Profile.hitStopMs-137)<.001f,"preset JSON round trip preserves duration edits");if(original==null)File.Delete(g.PresetPath);else File.WriteAllText(g.PresetPath,original);
    p=new ImpactProfile();p.hitStopMs=float.NaN;p.pitchMax=100;p.fragmentCount=1000;p.Clamp();C(p.hitStopMs==25&&p.pitchMax==2&&p.fragmentCount==64,"external preset values are normalized");
+   var legacy=ImpactProfile.FromJson("{\"schemaVersion\":1,\"pitch\":true,\"volume\":0.65}");C(legacy.scaleNotes==8&&legacy.noteIntervalMs==70&&legacy.noteVolume==.8f,"old presets gain audible eight-note defaults");
+   var muted=ImpactProfile.FromJson("{\"schemaVersion\":1,\"noteVolume\":0}");C(muted.noteVolume==0,"explicitly muted scale presets remain muted");
    for(int i=0;i<8;i++){
     g.SetProfile(ImpactProfile.GalleryDefault());g.SetMode(1);g.Select((Effect)i);g.ResetScene();yield return null;
     C(g.Active.Presenter.Enabled((Effect)i),"effect independently available: "+ImpactGallery.Names[i]);C(!g.Active.Presenter.Enabled((Effect)((i+1)%8)),"single mode isolates selection: "+ImpactGallery.Names[i]);

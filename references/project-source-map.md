@@ -33,3 +33,7 @@
 运行素材和逐文件SHA-256在 `asset-manifest.json`，包括项目已有球、砖块、粒子、SettingsC图集、猫啃珠圆体及音效。字体保留附带OFL和中文授权文件，音频保留项目来源说明；DOTween保留作者readme和许可链接。项目原创／生成美术仅按本次私有项目复用授权提供，不授予公开素材分发权。仓库保持私有。
 
 `scripts/import_project_assets.py` 是维护用的确定性复制脚本，已导入后无需再运行。UIBounce仅移除原AppUI和FeedbackProfile业务门禁，保留原按压、悬停、回弹曲线及网格变形。
+
+## 0.2.1 音阶音色
+
+升调使用Runtime/SolfeggioScale.cs生成的八个等长PCM短促乐音，C4至C5，半音0/2/4/5/7/9/11/12，带短起音与衰减包络。没有引入外部录音素材。未启用升调时继续使用项目原hit.wav。发射源码、拖尾和颜料资源保持0.2.0实现。

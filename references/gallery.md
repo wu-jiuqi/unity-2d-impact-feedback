@@ -42,8 +42,12 @@ python ./scripts/package.py
 python ./scripts/install.py --with-windows
 ```
 
-打包前必须有成功构建与两个帧率的运行结果。输出 `dist/unity-2d-impact-feedback-0.2.0.zip`（含完整Windows展示）与`dist/ImpactFeedbackGallery-Windows-x64-0.2.0.zip`。文件哈希写入 `dist/delivery.json`，检查摘要附在压缩包中。大体积构建产物放私有GitHub Release，不提交到源码Git历史。
+打包前必须有成功构建与两个帧率的运行结果。输出 `dist/unity-2d-impact-feedback-0.2.1.zip`（含完整Windows展示）与`dist/ImpactFeedbackGallery-Windows-x64-0.2.1.zip`。文件哈希写入 `dist/delivery.json`，检查摘要附在压缩包中。大体积构建产物放私有GitHub Release，不提交到源码Git历史。
 
 安装脚本把仓库内skill和示例复制到当前用户 `.codex/skills/unity-2d-impact-feedback`，排除Library、Temp、日志、Git及发布ZIP。传入`--with-windows`时将已构建展示复制到该skill的`Windows/`目录。默认不覆盖已存在的skill目录；更新时显式传`--replace`，仅更新本skill管理的文件。
 
 0.2.0强化了震屏首下并显示实际像素峰值；默认预设1.4%视口高度，项目参考预设仍保留原0.32%。拖尾使用项目原线芯Shader，碎片使用项目液滴和不规则色斑两张图集。
+
+## 0.2.1 八级音阶
+
+选择“升调”后，连续命中依次播放do re mi fa so la xi 高音do，达到最高级后保持；默认超过1.2秒没有音符重置到do。面板显示当前音符，支持最高音阶、音符最小间隔、断连重置、音阶音量和“重置到do”。重置音阶不操作发射队列。全部音符使用固定音高的乐音，不再对敲击声做任意小幅变调。单项关闭升调时保留固定do用于比较。发布包verification/solfeggio-scale.wav提供相同音色的完整音阶试听。

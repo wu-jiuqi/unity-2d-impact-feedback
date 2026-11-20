@@ -5,19 +5,21 @@ namespace ImpactFeedback {
   public ImpactProfile Profile=new ImpactProfile();public readonly FeedbackClock Clock=new FeedbackClock();
   public bool AllowEffects=true,ForceSelected,PlayAudio=true;public Effect Selected;
   public int ImpactCount{get;private set;}public float LastPitch{get;private set;}=1;
+  public int LastNoteIndex{get;private set;}public string LastNote=>SolfeggioScale.Names[LastNoteIndex];public int NotesPlayed{get;private set;}
   public int ActiveParticles{get;private set;}public int PeakParticles{get;private set;}public int ActivePaintMarks{get;private set;}public int LandedParticles{get;private set;}
   public float PeakShakePixels{get;private set;}public Vector3 CameraOffset=>view==null?Vector3.zero:view.transform.localPosition-cameraRest;
   public readonly List<YarnFlightTrail> Trails=new List<YarnFlightTrail>();readonly List<Transform> heads=new List<Transform>();
   sealed class Target{public SpriteRenderer face;public Vector3 rest;public Vector2 incoming;public float flashAge=9,squashAge=9;public MaterialPropertyBlock block=new MaterialPropertyBlock();}
   readonly Dictionary<SpriteRenderer,Target> targets=new Dictionary<SpriteRenderer,Target>();SpriteRenderer primary;
   Camera view;Vector3 cameraRest;Material flashMaterial;readonly Dictionary<Texture,Material> faceMaterials=new Dictionary<Texture,Material>();float alphaCutoff;float shakeAge=9,shakeDuration=.24f,shakeAmplitude;Vector2 shakeAxis=Vector2.right;
-  float pitchAt=-99,nextAudio;int pitchChain,voiceCursor;AudioSource[] voices;AudioClip clip;
+  float pitchAt=-99,nextAudio;int pitchChain,voiceCursor;AudioSource[] voices;AudioClip clip;SolfeggioScale notes;
   System.Random random=new System.Random(79012);Sprite[] particleSprites;
   struct Drop{public SpriteRenderer view;public Vector2 origin,target;public Color color;public float age,life,size,travel,rotation;public int sprite;public bool landed;}
   readonly Drop[] pool=new Drop[128];
   public bool Enabled(Effect e)=>AllowEffects&&Profile.Enabled(e)&&(!ForceSelected||Selected==e);
+  public void ResetNotes(){pitchChain=0;pitchAt=-99;nextAudio=0;LastPitch=1;LastNoteIndex=0;}
   public void Initialize(SpriteRenderer target,Transform movingHead,Camera camera,Sprite[] particles,AudioClip sound,Texture2D yarn){
-   primary=target;view=camera;cameraRest=view.transform.localPosition;particleSprites=particles;clip=sound;
+   primary=target;view=camera;cameraRest=view.transform.localPosition;particleSprites=particles;clip=sound;notes=new SolfeggioScale();
    flashMaterial=new Material(Shader.Find("ImpactFeedback/SpriteFlash"));AddTarget(target);AddTrail(movingHead,yarn);
    voices=new AudioSource[12];for(int i=0;i<voices.Length;i++){voices[i]=gameObject.AddComponent<AudioSource>();voices[i].playOnAwake=false;voices[i].spatialBlend=0;}
    for(int i=0;i<pool.Length;i++){var o=new GameObject("Project pooled paint "+i);o.transform.SetParent(transform,false);o.layer=target.gameObject.layer;var sr=o.AddComponent<SpriteRenderer>();sr.sprite=particles[i%4];sr.sortingOrder=78;o.SetActive(false);pool[i].view=sr;}
@@ -39,9 +41,17 @@ namespace ImpactFeedback {
    }
    Clock.Request(now,Profile,Enabled(Effect.HitStop)&&(special||ForceSelected&&Selected==Effect.HitStop),Enabled(Effect.SlowMotion)&&(special||ForceSelected&&Selected==Effect.SlowMotion));
    if(Enabled(Effect.Fragments)&&(kind!=ImpactKind.Hit||ForceSelected&&Selected==Effect.Fragments))Emit(position,direction,color,brickWidth);
-   if(now-pitchAt>Profile.pitchResetMs/1000)pitchChain=0;
-   LastPitch=Enabled(Effect.Pitch)?Mathf.Min(Profile.pitchMax,1+pitchChain*Profile.pitchStep):1;pitchChain++;pitchAt=now;
-   if(PlayAudio&&clip!=null&&now>=nextAudio){var a=voices[voiceCursor++%voices.Length];a.Stop();a.clip=clip;a.pitch=LastPitch;a.volume=Profile.volume;a.Play();nextAudio=now+.025f;}
+   if(PlayAudio&&now>=nextAudio){
+    bool ascending=Enabled(Effect.Pitch),scaleVoice=ascending||AllowEffects&&ForceSelected&&Selected==Effect.Pitch;
+    var a=voices[voiceCursor++%voices.Length];a.Stop();a.pitch=1;
+    if(scaleVoice){
+     if(now-pitchAt>Profile.pitchResetMs/1000)pitchChain=0;
+     LastNoteIndex=ascending?Mathf.Min(pitchChain,Profile.scaleNotes-1):0;LastPitch=SolfeggioScale.Ratio(LastNoteIndex);
+     a.clip=notes.Clip(LastNoteIndex);a.volume=Profile.volume*Profile.noteVolume;pitchAt=now;
+     pitchChain=ascending?Mathf.Min(LastNoteIndex+1,7):0;NotesPlayed++;nextAudio=now+Profile.noteIntervalMs/1000;
+    }else{LastPitch=1;LastNoteIndex=0;pitchChain=0;a.clip=clip;a.volume=Profile.volume;nextAudio=now+.025f;}
+    if(a.clip!=null)a.Play();
+   }
   }
   void ApplyShake(){float t=Mathf.Clamp01(shakeAge/shakeDuration);float amp=Enabled(Effect.Shake)?shakeAmplitude*view.orthographicSize*2:0;
    Vector2 tangent=new Vector2(-shakeAxis.y,shakeAxis.x);Vector2 offset=(shakeAxis*Mathf.Cos(t*Mathf.PI*6)+tangent*Mathf.Sin(t*Mathf.PI*8)*.3f)*amp*(1-t)*(1-t);
@@ -75,11 +85,11 @@ namespace ImpactFeedback {
    else{if(!d.landed){d.landed=true;d.view.sprite=particleSprites[d.sprite];d.view.sortingOrder=38;d.view.transform.position=d.target;d.view.transform.rotation=Quaternion.Euler(0,0,d.rotation);LandedParticles++;}
     ActivePaintMarks++;float settle=Mathf.Clamp01((d.age-d.travel)/.10f);Size(ref d,1+.12f*Mathf.Sin(settle*Mathf.PI));float fade=Mathf.Clamp01((d.life-d.age)/.40f);d.view.color=new Color(d.color.r,d.color.g,d.color.b,.90f*fade);}
   }PeakParticles=Mathf.Max(PeakParticles,ActiveParticles);}
-  public void ResetPresentation(){Clock.Reset();shakeAge=9;pitchChain=0;pitchAt=-99;LastPitch=1;
+  public void ResetPresentation(){Clock.Reset();shakeAge=9;pitchChain=0;pitchAt=-99;nextAudio=0;LastPitch=1;LastNoteIndex=0;
    if(view!=null)view.transform.localPosition=cameraRest;foreach(var t in targets.Values)ResetTarget(t.face);foreach(var trail in Trails)trail.Clear();
    for(int i=0;i<pool.Length;i++)if(pool[i].view!=null)pool[i].view.gameObject.SetActive(false);if(voices!=null)foreach(var a in voices)if(a!=null)a.Stop();ActiveParticles=ActivePaintMarks=0;
   }
   void OnApplicationFocus(bool focus){if(!focus)ResetPresentation();}void OnApplicationPause(bool pause){if(pause)ResetPresentation();}void OnDisable(){ResetPresentation();}
-  void OnDestroy(){if(flashMaterial!=null)Destroy(flashMaterial);foreach(var material in faceMaterials.Values)Destroy(material);foreach(var trail in Trails)trail.Dispose();}
+  void OnDestroy(){if(flashMaterial!=null)Destroy(flashMaterial);foreach(var material in faceMaterials.Values)Destroy(material);foreach(var trail in Trails)trail.Dispose();notes?.Dispose();}
  }
 }
