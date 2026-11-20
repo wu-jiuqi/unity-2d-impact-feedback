@@ -1,0 +1,107 @@
+[
+  {
+    "source": "Resources/Art/SettingsC/atlas.json",
+    "destination": "assets/unity-sample/Assets/Resources/Art/SettingsC/atlas.json",
+    "sha256": "5dbd8c3f8061b086fbe9e444a35de3d0c688a6445e062bc2c5568d36b7748c07"
+  },
+  {
+    "source": "Resources/Art/SettingsC/atlas-01.png",
+    "destination": "assets/unity-sample/Assets/Resources/Art/SettingsC/atlas-01.png",
+    "sha256": "8a92518c1117a75fe8de49db99015d74fad43e9026486ceaaf46c5d0bcafaf4c"
+  },
+  {
+    "source": "Resources/Art/SettingsC/atlas-02.png",
+    "destination": "assets/unity-sample/Assets/Resources/Art/SettingsC/atlas-02.png",
+    "sha256": "088e1b0ae5dc1c3db0686daea4c823721adfbf54eef29ced4dd2fdb54bb3ebe0"
+  },
+  {
+    "source": "Resources/Art/YarnV19/ball_yarn_blue.png",
+    "destination": "assets/unity-sample/Assets/Resources/Gallery/ball_yarn_blue.png",
+    "sha256": "2ea606950ca5b353b07e8c76c755a1f7d09e4d18e2168e042728116b4e5bb1c2"
+  },
+  {
+    "source": "Resources/Art/YarnV19/thread_line_blue.png",
+    "destination": "assets/unity-sample/Assets/Resources/Gallery/thread_line_blue.png",
+    "sha256": "cc982017810aded06a4be4d6b496a0bed984078e98e94e5f650dd2a99ead1749"
+  },
+  {
+    "source": "Resources/Art/FiveBakedV80/ordinary-pink.png",
+    "destination": "assets/unity-sample/Assets/Resources/Gallery/Bricks/ordinary-pink.png",
+    "sha256": "f407d21d99efd77550e7ea95ceed173bb455e95a274dc1f74f1f84f32c16717d"
+  },
+  {
+    "source": "Resources/Art/FiveBakedV80/ordinary-yellow.png",
+    "destination": "assets/unity-sample/Assets/Resources/Gallery/Bricks/ordinary-yellow.png",
+    "sha256": "4c1d23c9112194ea3d9dfe81472f6351511a144cf2e0118222cbb0e4e1662401"
+  },
+  {
+    "source": "Resources/Art/FiveBakedV80/ordinary-mint.png",
+    "destination": "assets/unity-sample/Assets/Resources/Gallery/Bricks/ordinary-mint.png",
+    "sha256": "14a04f5936a3fed901f61efb3f9338d79b35fafbc045d37ecc34c64a82692749"
+  },
+  {
+    "source": "Resources/Art/FiveBakedV80/ordinary-blue.png",
+    "destination": "assets/unity-sample/Assets/Resources/Gallery/Bricks/ordinary-blue.png",
+    "sha256": "d404faa3255b28deb0ad880ffbc870826643709c64916749fff1d368c67f10a1"
+  },
+  {
+    "source": "Resources/Art/FiveBakedV80/ordinary-lilac.png",
+    "destination": "assets/unity-sample/Assets/Resources/Gallery/Bricks/ordinary-lilac.png",
+    "sha256": "18ecb855a27f9fddbd6f535544baa749bf0d55d432f89668d1c768a277dff586"
+  },
+  {
+    "source": "Resources/Art/FiveBakedV80/footprints.json",
+    "destination": "assets/unity-sample/Assets/Resources/Gallery/Bricks/footprints.json",
+    "sha256": "9232b1ef266383e11f5ee97393e84b7582f5e062a9c4efa4cc5ad0bafa04aa89"
+  },
+  {
+    "source": "Resources/Art/CombatFeedback79/jelly_particles.png",
+    "destination": "assets/unity-sample/Assets/Resources/Gallery/particles.png",
+    "sha256": "e72c5a4320b520ff72182a1ff5ed5bf7b8a06fec6e52351e95efdc2932ec52cf"
+  },
+  {
+    "source": "Resources/Fonts/MaokenZhuyuanTi.ttf",
+    "destination": "assets/unity-sample/Assets/Resources/Fonts/MaokenZhuyuanTi.ttf",
+    "sha256": "221ce3d8e2fc52f982ce9be57de3c66726ed951c8d07b0208b726763fbf7e96a"
+  },
+  {
+    "source": "Resources/Fonts/MaokenZhuyuanTi-OFL.txt",
+    "destination": "assets/unity-sample/Assets/Resources/Fonts/MaokenZhuyuanTi-OFL.txt",
+    "sha256": "f1aaf0bd7443cebbbe4c1faa124e398728bb780a61dec1e347045898bb9f0f28"
+  },
+  {
+    "source": "Resources/Fonts/MaokenZhuyuanTi-OFL_ZHS.txt",
+    "destination": "assets/unity-sample/Assets/Resources/Fonts/MaokenZhuyuanTi-OFL_ZHS.txt",
+    "sha256": "e2c2e3bf57c46809197a762788a86ca44914964ad61339474c6be6c5618b1725"
+  },
+  {
+    "source": "Resources/Fonts/MaokenZhuyuanTi-字体授权说明.txt",
+    "destination": "assets/unity-sample/Assets/Resources/Fonts/MaokenZhuyuanTi-字体授权说明.txt",
+    "sha256": "3c824e0c8b47590f6e7b1b7be39b96c6c1e728c553f87e18c0b4cf2ed8e0934f"
+  },
+  {
+    "source": "Resources/Audio/Jelly/AI/sfx/hit.wav",
+    "destination": "assets/unity-sample/Assets/Resources/Gallery/hit.wav",
+    "sha256": "2f832dc37499f84155abc306e6e46f05dcd89e03e68aa21f8c8469a6ff521439"
+  },
+  {
+    "source": "Resources/Audio/Jelly/AI/SOURCE.md",
+    "destination": "assets/unity-sample/Assets/Resources/Gallery/AUDIO-SOURCE.md",
+    "sha256": "3dfb1f121ff2bb0bff8ccb52d347865214fa900722d68388928efaab7bcc86eb"
+  },
+  {
+    "source": "Plugins/Demigiant/DOTween/DOTween.dll",
+    "destination": "assets/unity-sample/Assets/Plugins/DOTween/DOTween.dll",
+    "sha256": "c51b065925bb37c308f9a05a776cdf09f49a97a6f7c2393b4fb3b3f01c045232"
+  },
+  {
+    "source": "Plugins/Demigiant/DOTween/readme.txt",
+    "destination": "assets/unity-sample/Assets/Plugins/DOTween/readme.txt",
+    "sha256": "750732579f45bb70c42a3906b38038e9c991010bcb5816fca1b3aebd30e967d4"
+  },
+  {
+    "source": "Scripts/UI/UIBounce.cs",
+    "destination": "assets/unity-sample/Assets/ImpactFeedback/Gallery/UIBounce.cs",
+    "adaptation": "Namespace and host-game gates only; tween curves, timing and mesh deformation retained."
+  }
+]

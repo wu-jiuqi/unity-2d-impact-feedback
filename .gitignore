@@ -1,0 +1,12 @@
+**/[Ll]ibrary/
+**/[Tt]emp/
+**/[Oo]bj/
+**/[Ll]ogs/
+**/UserSettings/
+**/.vs/
+**/*.csproj
+**/*.sln
+Builds/
+dist/
+evidence/
+__pycache__/

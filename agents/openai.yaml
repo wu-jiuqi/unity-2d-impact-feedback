@@ -1,0 +1,4 @@
+interface:
+  display_name: "Unity 2D 碰撞反馈"
+  short_description: "复用八种碰撞反馈，实时调节手感，并生成 Windows 交互展馆"
+  default_prompt: "使用 $unity-2d-impact-feedback 为我的 Unity 2D 场景接入碰撞反馈，复用现有素材并在展馆里对照调参。"

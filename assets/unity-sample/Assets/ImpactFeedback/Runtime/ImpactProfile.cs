@@ -1,0 +1,35 @@
+using System;
+using UnityEngine;
+
+namespace ImpactFeedback {
+ public enum Effect { Flash, Trail, Shake, HitStop, SlowMotion, Fragments, Squash, Pitch }
+ public enum ImpactKind { Hit, Break, Special }
+ [Serializable] public sealed class ImpactProfile {
+  public int schemaVersion=1;
+  public bool flash=true,trail=true,shake=true,hitStop=true,slowMotion=true,fragments=true,squash=true,pitch=true;
+  public float flashStrength=.48f,flashMs=50;
+  public float trailLength=2.1f,trailWidth=.20f,trailLife=.24f,trailOpacity=.95f;
+  public float shakeHeight=.0032f,shakeMs=320;
+  public float hitStopMs=25,hitStopCooldownMs=500,hitStopBudgetMs=30;
+  public float slowScale=.55f,slowMs=160;
+  public int fragmentCount=12;
+  public float fragmentSpeed=4,fragmentSize=.16f,fragmentLife=1.2f;
+  public float squashAmount=.18f,squashMs=450;
+  public float pitchStep=.025f,pitchMax=1.15f,pitchResetMs=1200,volume=.65f;
+  public bool Enabled(Effect e){switch(e){case Effect.Flash:return flash;case Effect.Trail:return trail;case Effect.Shake:return shake;case Effect.HitStop:return hitStop;case Effect.SlowMotion:return slowMotion;case Effect.Fragments:return fragments;case Effect.Squash:return squash;default:return pitch;}}
+  public void Enable(Effect e,bool v){switch(e){case Effect.Flash:flash=v;break;case Effect.Trail:trail=v;break;case Effect.Shake:shake=v;break;case Effect.HitStop:hitStop=v;break;case Effect.SlowMotion:slowMotion=v;break;case Effect.Fragments:fragments=v;break;case Effect.Squash:squash=v;break;case Effect.Pitch:pitch=v;break;}}
+  public ImpactProfile Copy()=>JsonUtility.FromJson<ImpactProfile>(JsonUtility.ToJson(this));
+  public void Clamp(){
+   schemaVersion=1;flashStrength=C(flashStrength,0,1,.48f);flashMs=C(flashMs,5,400,50);
+   trailLength=C(trailLength,.1f,5,2.1f);trailWidth=C(trailWidth,.02f,.6f,.2f);trailLife=C(trailLife,.03f,1,.24f);trailOpacity=C(trailOpacity,0,1,.95f);
+   shakeHeight=C(shakeHeight,0,.02f,.0032f);shakeMs=C(shakeMs,40,800,320);
+   hitStopMs=C(hitStopMs,0,250,25);hitStopCooldownMs=C(hitStopCooldownMs,0,1500,500);hitStopBudgetMs=C(hitStopBudgetMs,0,500,30);
+   slowScale=C(slowScale,.05f,1,.55f);slowMs=C(slowMs,0,1500,160);
+   fragmentCount=Mathf.Clamp(fragmentCount,0,64);fragmentSpeed=C(fragmentSpeed,.1f,12,4);fragmentSize=C(fragmentSize,.03f,.5f,.16f);fragmentLife=C(fragmentLife,.1f,3,1.2f);
+   squashAmount=C(squashAmount,0,.45f,.18f);squashMs=C(squashMs,50,1000,450);
+   pitchStep=C(pitchStep,0,.15f,.025f);pitchMax=C(pitchMax,1,2,1.15f);pitchResetMs=C(pitchResetMs,200,5000,1200);volume=C(volume,0,1,.65f);
+  }
+  static float C(float v,float min,float max,float fallback)=>float.IsNaN(v)||float.IsInfinity(v)?fallback:Mathf.Clamp(v,min,max);
+  public static ImpactProfile Teaching(){var p=new ImpactProfile();p.hitStopMs=90;p.hitStopBudgetMs=180;p.shakeHeight=.008f;p.shakeMs=400;p.slowScale=.25f;p.slowMs=450;p.flashMs=120;p.squashAmount=.28f;p.pitchStep=.07f;p.pitchMax=1.6f;return p;}
+ }
+}
