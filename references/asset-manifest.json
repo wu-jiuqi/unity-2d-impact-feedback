@@ -60,6 +60,16 @@
     "sha256": "e72c5a4320b520ff72182a1ff5ed5bf7b8a06fec6e52351e95efdc2932ec52cf"
   },
   {
+    "source": "Resources/Art/CombatFeedback79/paint_splatters.png",
+    "destination": "assets/unity-sample/Assets/Resources/Gallery/paint_splatters.png",
+    "sha256": "614f76d605f89f6b18df62236be267ea46ef88745f575cd85c6f72eeb8e90ebf"
+  },
+  {
+    "source": "Resources/YarnTrail79.shader",
+    "destination": "assets/unity-sample/Assets/ImpactFeedback/Runtime/YarnTrail.shader",
+    "adaptation": "Original fiber UV calibration and glow; standard Unity projection replaces BoardClip."
+  },
+  {
     "source": "Resources/Fonts/MaokenZhuyuanTi.ttf",
     "destination": "assets/unity-sample/Assets/Resources/Fonts/MaokenZhuyuanTi.ttf",
     "sha256": "221ce3d8e2fc52f982ce9be57de3c66726ed951c8d07b0208b726763fbf7e96a"

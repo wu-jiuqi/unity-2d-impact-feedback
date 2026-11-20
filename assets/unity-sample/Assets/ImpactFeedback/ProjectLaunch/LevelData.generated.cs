@@ -1,0 +1,2 @@
+// Original LevelData defaults and GameSession speed fit.
+namespace ImpactFeedback.ProjectLaunch {public sealed class LevelData {public int volleyCount = 5; public float ballInterval = 0.10f; public float ballSpeed = 15.7f*.86f; public float gravity = 0f;}}

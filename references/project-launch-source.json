@@ -1,0 +1,132 @@
+{
+  "source": "BounceBusters",
+  "extractions": [
+    {
+      "symbol": "bool TryShootCore(Vector2 direction)",
+      "source": "Core/GameSession.cs",
+      "sha256": "d7803a04e99a4aeef9430e2a322c79e05336170858c6cf46bebe571928c61f19",
+      "body": "bool TryShootCore(Vector2 direction)\n        {\n            if(RefillFreezeBalls)return false;\n            if(IsCollection&&(CollectionVictoryPending||CollectionWon||EarnedChainGoal()))return false;\n            // Accept one deliberate release during the previous volley/cooldown.\n            // Charge it only when promoted; pause/navigation discard it.\n            if(IsChainCollection&&IsPlaying&&!IsPaused&&Shots>0&&!CollectionWon&&!queuedShot.HasValue&&direction.sqrMagnitude>=.001f&&direction.y>0){\n                if(bufferedChainShot.HasValue)return false;\n                if(!ChainCanLaunch)return BufferChainShot(direction);\n            }\n            if(!IsPlaying||IsPaused||(IsCollection&&(!CollectionReady||CollectionTool!=0))||BossBlocksShot||(IsPixelDrop&&(ActiveBalls>0||DropSettling))||queuedShot.HasValue||!rules.CanShoot||(IsAbilityRoute&&ActiveBalls>0)||direction.sqrMagnitude<.001f||direction.y<=0)return false;\n            direction=NormalizeAimDirection(direction);\n            queuedShot=direction;SetAim(null);return true;\n        }"
+    },
+    {
+      "symbol": "public static Vector2 NormalizeAimDirection(Vector2 direction)",
+      "source": "Core/GameSession.cs",
+      "sha256": "f789196cb0dab5a7b585930a1fd03261ea1e2693ae3d767e8ca8274229965c34",
+      "body": "public static Vector2 NormalizeAimDirection(Vector2 direction)\n        {\n            float angle=Mathf.Clamp(Mathf.Atan2(direction.y,direction.x),12*Mathf.Deg2Rad,168*Mathf.Deg2Rad);\n            return new Vector2(Mathf.Cos(angle),Mathf.Sin(angle));\n        }"
+    },
+    {
+      "symbol": "void ReturnReserved()",
+      "source": "Core/GameSession.cs",
+      "sha256": "5b08421ce9bc8cee1cd2eeb97d4eaab5cc80e086e46ec4d89d65ec78efb2f0c7",
+      "body": "void ReturnReserved()\n        {\n            while(reserved.Count>0){var ball=reserved.Dequeue();ball.Deactivate();pool.Push(ball);}\n        }"
+    },
+    {
+      "symbol": "bool BufferChainShot(Vector2 direction)",
+      "source": "Core/ChainLiveSession.cs",
+      "sha256": "af2fb89ba82e19bb6afe5fad9a192e98b1604d97cab4e0caa14370193ebf0eb4",
+      "body": "bool BufferChainShot(Vector2 direction){if(bufferedChainShot.HasValue)return false;bufferedChainShot=NormalizeAimDirection(direction);changed=true;return true;}"
+    },
+    {
+      "symbol": "void PromoteBufferedChainShot()",
+      "source": "Core/ChainLiveSession.cs",
+      "sha256": "4864754835b6a69c760753dc9838c60aa2a6a29da541baca0fe765d1862b0f71",
+      "body": "void PromoteBufferedChainShot(){if(!bufferedChainShot.HasValue||!ChainCanLaunch)return;queuedShot=bufferedChainShot;strategyQueuedRequest=strategyBufferedRequest;bufferedChainShot=null;changed=true;}"
+    },
+    {
+      "symbol": "void FixedUpdate()",
+      "source": "Core/GameSession.cs",
+      "sha256": "0dafc0ee0d1992e19c94c6ca4128d49adc7e68da09927057883ac30083de4007",
+      "body": "void FixedUpdate()\n        {\n            if(!IsPlaying||IsPaused||JuiceFrozen)return;\n            TickCollection(Time.fixedDeltaTime);\n            if(IsChainCollection&&!IsTutorial&&!IsStreakTrial&&CollectionWon){foreach(var ball in active.Values)ball.Body.simulated=false;foreach(var brick in CollectionBricks){var body=brick.GetComponent<Rigidbody2D>();if(body!=null)body.simulated=false;}return;}\n            TickPixelDrop();\n            TickJuice(Time.fixedDeltaTime);\n            TickBoss(Time.fixedDeltaTime);\n            if(BossDefeating)return;\n            bool couldRecall=RecallAvailable;\n            noDamageTime=ActiveBalls>0?noDamageTime+Time.fixedDeltaTime:0;\n            if(couldRecall!=RecallAvailable)changed=true;\n            PhysicsStep++;contactsThisStep.Clear();simulationClock+=Time.fixedDeltaTime;\n            if(IsChainCollection)PromoteBufferedChainShot();\n            if(queuedShot.HasValue)\n            {\n                Vector2 direction=queuedShot.Value;queuedShot=null;\n                if(rules.CanShoot)BeginBurst(direction);\n            }\n            if(PendingBurstBalls>0&&!RefillFreezeBalls&&!CollectionVictoryPending&&simulationClock+.00001f>=nextSpawnTime)\n            {\n                var ball=reserved.Dequeue();int id=nextBallId++;\n                ball.Initialize(id,Generation,SpawnPosition(burstDirection),burstDirection*CurrentLevel.ballSpeed,CurrentLevel.gravity);\n                if(!rules.SpawnPendingBall(id)){ball.Deactivate();pool.Push(ball);return;}\n                active.Add(id,ball);SpawnCount++;nextSpawnTime+=CurrentLevel.ballInterval;OnBallSpawned(ball);\n            }\n        }"
+    },
+    {
+      "symbol": "void BeginBurst(Vector2 direction)",
+      "source": "Core/GameSession.cs",
+      "sha256": "9c67df22c7cb20b806038c2c51f8b1df2c0601fec7d92c2a77a126964ef87446",
+      "body": "void BeginBurst(Vector2 direction)\n        {\n            if(CollectionGoalEarned){FinishEarnedCollectionSupply();return;}\n            if(RefillFreezeBalls||!PrepareShopBooster())return;\n            // Reserve the whole volley before charging it. There is no artificial active-ball gameplay cap.\n            var observation=StrategyObserver==null?null:new StrategyEvent{kind=\"shot\",request=strategyQueuedRequest,activeBalls=ActiveBalls,pendingBalls=PendingBurstBalls,liveGroups=ChainLiveGroups,x=direction.x,y=direction.y,detail=StrategySettled?\"settled\":\"settling\"};\n            burstColor=SelectedColor;\n            int count=Mathf.Max(1,CurrentLevel.volleyCount);\n            for(int i=0;i<count;i++)reserved.Enqueue(pool.Count>0?pool.Pop():CreateBall());\n            var first=reserved.Dequeue();int id=nextBallId++;\n            first.Initialize(id,Generation,SpawnPosition(direction),direction*CurrentLevel.ballSpeed,CurrentLevel.gravity);\n            if(!rules.BeginBurst(count,id))\n            {\n                first.Deactivate();pool.Push(first);ReturnReserved();return;\n            }\n            burstDirection=direction;active.Add(id,first);SpawnCount++;nextSpawnTime=simulationClock+CurrentLevel.ballInterval;\n            if(IsCollection)collectionRoundPending=true;\n            var actualBooster=SelectedStreakBooster;\n            if(IsChainCollection)BeginChainVolley();\n            OnBossBurst();\n            OnJuiceBurst();\n            if(IsAbilityRoute){upcoming.RemoveAt(selectedSlot);selectedSlot=0;UpdateLoadedAbility();}\n            if(cannonPivot!=null)cannonPivot.localRotation=Quaternion.Euler(0,0,Mathf.Atan2(direction.y,direction.x)*Mathf.Rad2Deg-90);\n            OnBallSpawned(first);if(observation!=null){observation.group=chainBurstSerial;StrategyEmit(observation);}VolleyStarted?.Invoke(actualBooster);\n        }"
+    },
+    {
+      "symbol": "public void LoseBall(BallBody ball,Vector2 position)",
+      "source": "Core/GameSession.cs",
+      "sha256": "436262754322318df2d2b744521f0f997b9ef14d155eaed61b8f4e0ca8cec45c",
+      "body": "public void LoseBall(BallBody ball,Vector2 position)\n        {\n            if(ball==null||!ball.Active||ball.SessionGeneration!=Generation||!rules.LoseBall(ball.Id))return;\n            active.Remove(ball.Id);if(IsChainCollection)ReturnChainBall(ball);ball.Deactivate(true);pool.Push(ball);LostCount++;changed=true;\n            if(active.Count==0)noDamageTime=0;\n            EmitFeedback(position,\"splash\",new Color(.58f,.94f,1));\n        }"
+    },
+    {
+      "symbol": "ChainCanLaunch",
+      "source": "Core/ChainLiveSession.cs",
+      "sha256": "95203ae86b8c1d160b34374dc169751344b3bb84328cd3dd134d7b31029387c1",
+      "body": "public bool ChainCanLaunch=>IsPlaying&&!IsPaused&&!RefillFreezeBalls&&!CollectionGoalEarned&&Shots>0&&PendingBurstBalls==0&&!queuedShot.HasValue&&simulationClock+.00001f>=chainNextLaunch;"
+    },
+    {
+      "symbol": "live group cooldown",
+      "source": "Core/ChainLiveSession.cs",
+      "sha256": "dc1eb74006c99662b2621da66a8c9ab93c8cdc65aadec5b35246a534da957dd5",
+      "body": "chainNextLaunch=simulationClock+.55f;"
+    },
+    {
+      "symbol": "SpawnPosition",
+      "source": "Core/GameSession.cs",
+      "sha256": "d665b29d922fc0d0b009019035d8ce34c12207bb9f4f6c3b7d57666acabe1fbe",
+      "body": "public Vector2 SpawnPosition(Vector2 direction)=>LauncherPosition+NormalizeAimDirection(direction)*MuzzleOffset;"
+    },
+    {
+      "symbol": "RuleState",
+      "source": "Core/RuleState.cs",
+      "sha256": "e75d67f660a9590837858ddaec5fc09bb9d94f5522709baa5f9df8060e6e6d03",
+      "body": "using System;\nusing System.Collections.Generic;\n\nnamespace BounceGarden\n{\n    // Rules contain no Unity types, clocks, rendering or audio dependencies.\n    public sealed class RuleState\n    {\n        readonly Dictionary<int, int> targets = new Dictionary<int, int>();\n        readonly HashSet<int> balls = new HashSet<int>();\n        int primaryObjective;\n        // Optional encounter goal: other registered targets remain ordinary damageable bricks.\n        public void SetPrimaryObjective(int id)\n        {\n            if (!targets.ContainsKey(id)) throw new ArgumentException(\"Primary objective must be registered\");\n            primaryObjective = id;\n        }\n        public bool UnlimitedShots {get;set;}\n        public void CommitOutcome(bool won){Won=won;OutcomeCommitted=true;PendingBurstBalls=0;}\n        public int Shots { get; private set; }\n        public void SpendVictorySteps(int amount){if(OutcomeCommitted&&Won)Shots=Math.Max(0,Shots-Math.Max(0,amount));}\n        public void ClearVictoryTargets(){if(!OutcomeCommitted||!Won)return;targets.Clear();balls.Clear();PendingTargetStages=PendingDamageChains=PendingBurstBalls=0;}\n        public int PendingBurstBalls { get; private set; }\n        public int ActiveBalls => balls.Count;\n        public int RemainingTargets => targets.Count;\n        public int PendingTargetStages { get; private set; }\n        public int PendingDamageChains { get; private set; }\n        public bool OutcomeCommitted { get; private set; }\n        public bool Won { get; private set; }\n        public bool VictoryDamageEnabled {get;set;}\n        public void ClearVictoryBalls(){if(!OutcomeCommitted||!Won)return;balls.Clear();PendingBurstBalls=0;}\n        public bool CanShoot => !OutcomeCommitted && Shots > 0 && PendingBurstBalls == 0;\n        public bool ContinueUsed { get; private set; }\n        public bool CanContinue => OutcomeCommitted && !Won && targets.Count > 0 && !ContinueUsed;\n\n        public bool TryContinue(int shots)\n        {\n            if (!CanContinue || shots < 1) return false;\n            Shots = shots; OutcomeCommitted = false; ContinueUsed = true; return true;\n        }\n\n        public void Reset(int shots)\n        {\n            targets.Clear(); balls.Clear(); Shots = Math.Max(0, shots);\n            primaryObjective = 0;UnlimitedShots=false;\n            PendingBurstBalls = PendingTargetStages = PendingDamageChains = 0;\n            OutcomeCommitted = Won = VictoryDamageEnabled = false;\n            ContinueUsed = false;\n        }\n\n        public void RegisterTarget(int id, int hp)\n        {\n            if (hp < 1) throw new ArgumentOutOfRangeException(nameof(hp));\n            targets.Add(id, hp);\n        }\n        public int Health(int id) => targets.TryGetValue(id, out int hp) ? hp : 0;\n        public bool DamageTarget(int id, int amount, out bool destroyed)\n        {\n            destroyed = false;\n            if (OutcomeCommitted&&!VictoryDamageEnabled || amount < 1 || !targets.TryGetValue(id, out int hp)) return false;\n            hp -= amount;\n            if (hp <= 0) { targets.Remove(id); destroyed = true; }\n            else targets[id] = hp;\n            return true;\n        }\n\n        // Caller reserves and initializes the first physical ball before accepting the burst.\n        public bool BeginBurst(int count, int firstBallId)\n        {\n            if (!CanShoot || count < 1 || balls.Contains(firstBallId)) return false;\n            if(!UnlimitedShots)Shots--; PendingBurstBalls = count - 1; balls.Add(firstBallId); return true;\n        }\n        public bool SpawnPendingBall(int id)\n        {\n            if (OutcomeCommitted || PendingBurstBalls < 1 || balls.Contains(id)) return false;\n            PendingBurstBalls--; balls.Add(id); return true;\n        }\n        public bool LoseBall(int id) => balls.Remove(id);\n        public bool AddSplitBall(int id) => !OutcomeCommitted && balls.Add(id);\n        public void BeginTargetStage() { PendingTargetStages++; }\n        public void CompleteTargetStage() { PendingTargetStages = Math.Max(0, PendingTargetStages - 1); }\n        public void BeginDamageChain() { PendingDamageChains++; }\n        public void CompleteDamageChain() { PendingDamageChains = Math.Max(0, PendingDamageChains - 1); }\n\n        // Called after physics callbacks. Win takes priority when last target and ball leave together.\n        public bool Resolve(out bool won)\n        {\n            won = Won;\n            if (OutcomeCommitted || PendingTargetStages != 0 || PendingDamageChains != 0) return false;\n            if (primaryObjective != 0 ? !targets.ContainsKey(primaryObjective) : targets.Count == 0) { won = true; }\n            else if (Shots == 0 && PendingBurstBalls == 0 && balls.Count == 0) { won = false; }\n            else return false;\n            Won = won; OutcomeCommitted = true; PendingBurstBalls = 0; return true;\n        }\n    }\n\n    public static class RuleSelfTests\n    {\n        static void Check(bool condition, string message) { if (!condition) throw new InvalidOperationException(\"RULE TEST FAILED: \" + message); }\n        public static string RunAll()\n        {\n            int count = 0;\n            var r = new RuleState(); r.Reset(2); r.RegisterTarget(1, 2);\n            Check(r.BeginBurst(5, 100) && r.Shots == 1 && r.PendingBurstBalls == 4 && r.ActiveBalls == 1, \"burst charges once\"); count++;\n            Check(!r.BeginBurst(5, 200) && r.Shots == 1, \"pending burst rejects another request\"); count++;\n            for (int id = 101; id <= 104; id++) Check(r.SpawnPendingBall(id), \"pending ball spawn\");\n            Check(r.Shots == 1 && r.PendingBurstBalls == 0 && r.ActiveBalls == 5, \"sub balls do not consume shots\"); count++;\n            Check(r.BeginBurst(5, 200) && r.Shots == 0 && r.ActiveBalls == 6, \"old balls do not block next shot\"); count++;\n            Check(!r.Resolve(out _), \"last volley not prematurely lost\"); count++;\n            for (int id = 100; id <= 104; id++) r.LoseBall(id);\n            r.LoseBall(200);\n            Check(!r.Resolve(out _) && r.PendingBurstBalls == 4, \"pending balls keep session alive\"); count++;\n            for (int id = 201; id <= 204; id++) r.SpawnPendingBall(id);\n            Check(r.DamageTarget(1, 1, out bool firstDestroyed) && !firstDestroyed && r.Health(1) == 1, \"first distinct hit damages\"); count++;\n            Check(r.DamageTarget(1, 1, out bool destroyed) && destroyed && !r.DamageTarget(1, 1, out _), \"target destruction idempotent\"); count++;\n            for (int id = 201; id <= 204; id++) r.LoseBall(id);\n            Check(r.Resolve(out bool won) && won, \"last target plus last loss resolves win\"); count++;\n            Check(!r.Resolve(out _) && !r.BeginBurst(5, 300), \"outcome commits once and blocks shooting\"); count++;\n            r.Reset(1); r.RegisterTarget(1, 10); r.BeginBurst(1, 1);\n            Check(r.LoseBall(1) && !r.LoseBall(1) && r.ActiveBalls == 0, \"water and crossing lose ball only once\"); count++;\n            Check(r.Resolve(out won) && !won, \"exhausted active and pending resources lose\"); count++;\n            Check(!r.TryContinue(0) && r.TryContinue(5) && r.Shots == 5 && r.Health(1) == 10 && r.CanShoot, \"continue retains target health and restores five shots only after loss\"); count++;\n            Check(!r.TryContinue(5), \"duplicate completion cannot grant more shots\"); count++;\n            for(int i=0;i<5;i++){r.BeginBurst(1,400+i);r.LoseBall(400+i);}\n            Check(r.Resolve(out won) && !won && !r.CanContinue && !r.TryContinue(5), \"second loss cannot reuse rewarded continue\"); count++;\n            r.Reset(0);r.Resolve(out won);Check(won&&!r.TryContinue(5),\"victory cannot be continued\");count++;\n            r.Reset(0); r.BeginTargetStage();\n            Check(!r.Resolve(out _), \"hidden target stage blocks early win\"); count++;\n            r.RegisterTarget(5, 1); r.CompleteTargetStage(); r.BeginDamageChain();\n            r.DamageTarget(5, 1, out _); Check(!r.Resolve(out _), \"damage chain delays outcome\"); count++;\n            r.CompleteDamageChain(); Check(r.Resolve(out won) && won, \"completed reveal chain wins\"); count++;\n            for (int i = 0; i < 100; i++) { r.Reset(20); r.RegisterTarget(i, 1); r.BeginBurst(5, i); }\n            Check(r.Shots == 19 && r.ActiveBalls == 1 && r.PendingBurstBalls == 4 && r.RemainingTargets == 1, \"100 restarts leave no model state\"); count++;\n            return \"PASS \" + count + \" rule checks: burst accounting, overlap, final shot, duplicate destruction/loss, same-step win, stages, outcome and 100 resets.\";\n        }\n    }\n}\n"
+    },
+    {
+      "symbol": "Round4ReferenceData",
+      "source": "Core/Round4ReferenceData.cs",
+      "sha256": "6ff8f81ae5060902641b70f0d2bfa2afb0ff3a220992ba79d9f1a49be435a663",
+      "body": "using UnityEngine;\nnamespace BounceGarden {\npublic static class Round4ReferenceData {\npublic const float PixelsToWorld=10.8f/592f;\npublic static Vector2 Point(float x,float y)=>new Vector2((x-296)*PixelsToWorld,(640-y)*PixelsToWorld);\npublic static readonly string[] Grid={\"....OOOO....\",\"..OOYYYYOO..\",\".OYYYYYYYYO.\",\".OYBYYYYBYO.\",\"OYBPBYYBPBYO\",\"OYYYY..YYYYO\",\"OYYYY..YYYYO\",\"OYYBIIIIBYYO\",\".OYYBBBBYYO.\",\".OYYYBBYYYO.\",\"..OOYYYYOO..\",\"....OOOO....\"};\n}\n}\n"
+    },
+    {
+      "symbol": "BeginAim",
+      "source": "UI/AppUI.cs",
+      "sha256": "fe481dd3548d32da5d9f8f80d2fe3284863427150b778121653b9f182a0aab58",
+      "body": "void BeginAim(Vector2 pos,int id){if(aiming)return;if(UIBlocked(pos)){BattleInputStatus=\"ui-hit\";return;}if(gameCamera==null||!gameCamera.pixelRect.Contains(pos)){BattleInputStatus=\"outside\";return;}if(Session.GardenDecor!=null&&Session.GardenDecor.TryTap(gameCamera.ScreenToWorldPoint(pos)))return;if(Session.IsCollection&&Session.CollectionTool!=0){Session.UseCollectionTool(BoardDisplay.Inverse(gameCamera.ScreenToWorldPoint(pos)));return;}if(Session.IsAbilityRoute&&Session.ActiveBalls>0){Session.ActivateAbility();return;}aiming=true;BattleInputStatus=\"aiming\";NotifyTutorialPointer(true);pointerId=id;pointerStart=pos;Metrics?.Balance?.StrategyInput(\"begin\",aimDirection);UpdateAim(pos);}"
+    },
+    {
+      "symbol": "UpdateAim",
+      "source": "UI/AppUI.cs",
+      "sha256": "5f04c08c6b6d90cdd5c5d0ac56946976315d83e8318a5d0a42784b9726588d91",
+      "body": "void UpdateAim(Vector2 pos){if(!aiming)return;var w=BoardDisplay.Inverse(CameraJuice.StableScreenToWorld(gameCamera,pos));var d=w-Session.LauncherPosition;if(d.y<.2f)d.y=.2f;if(d.sqrMagnitude<.01f)d=Vector2.up;aimDirection=d.normalized;Metrics?.Balance?.StrategyInput(\"adjust\",aimDirection);Session.SetAim(aimDirection);}"
+    },
+    {
+      "symbol": "EndAim",
+      "source": "UI/AppUI.cs",
+      "sha256": "fac74c7ac00d6d2206bbefb50d1f0a03803bcf94e0460b34738c7c0a263b51d2",
+      "body": "void EndAim(Vector2 pos){if(!aiming)return;bool valid=(pos-pointerStart).sqrMagnitude>36&&gameCamera.pixelRect.Contains(pos);if(Array.IndexOf(Environment.GetCommandLineArgs(),\"--demo-record\")>=0)Debug.Log(\"DEMO_AIM start=\"+pointerStart+\" end=\"+pos+\" valid=\"+valid+\" paused=\"+Session.IsPaused);var dir=aimDirection;Metrics?.Balance?.StrategyInput(valid?\"release\":\"cancel\",dir);CancelAim();if(valid&&Session.TryShoot(dir)){Metrics?.AcceptedRelease();BattleAcceptedShots++;BattleInputStatus=\"accepted\";if(tutorialStep==1)ShowTutorial(2);}else BattleInputStatus=valid?\"shot-wait\":\"short/outside\";}"
+    },
+    {
+      "symbol": "CancelAim",
+      "source": "UI/AppUI.cs",
+      "sha256": "00e0e1ff3f298bbb6fa7f979942f06b1dc405493469420d59dae9e0ce6f69841",
+      "body": "void CancelAim(){if(aiming){Metrics?.Balance?.StrategyInput(\"cancel\",aimDirection);NotifyTutorialPointer(false);}aiming=false;pointerId=-999;if(Session!=null)Session.SetAim(null);}"
+    },
+    {
+      "symbol": "OnGUI",
+      "source": "UI/AppUI.cs",
+      "sha256": "984970460d854066d30ef2475aea310ae1b46e87056848306403cdba4a86d8e7",
+      "body": "void OnGUI(){\n  if(nativeTouchReady||Input.touchCount>0)return;var e=Event.current;if(e==null||e.button!=0)return;\n  if(!playing||busy||modal!=null||results!=null||!Session.IsPlaying||Session.IsPaused)return;\n  Vector2 position=new Vector2(e.mousePosition.x,Screen.height-e.mousePosition.y);\n  if(e.type==EventType.MouseDown)BeginAim(position,-1);\n  else if(e.type==EventType.MouseDrag&&aiming&&pointerId==-1)UpdateAim(position);\n  else if(e.type==EventType.MouseUp&&aiming&&pointerId==-1){UpdateAim(position);EndAim(position);}\n }"
+    },
+    {
+      "symbol": "UIBlocked",
+      "source": "UI/AppUI.cs",
+      "sha256": "d337402eedb75e4503e610c223c7fc7451b0798cd1eb5a2383b1efb242535a5f",
+      "body": "bool UIBlocked(Vector2 pos){if(EventSystem.current==null)return false;uiHits.Clear();var data=new PointerEventData(EventSystem.current){position=pos};EventSystem.current.RaycastAll(data,uiHits);return uiHits.Count>0;}"
+    },
+    {
+      "symbol": "TimeManager",
+      "source": "ProjectSettings/TimeManager.asset",
+      "sha256": "e6d0d31782b4896159d2f7249b1845004a7a9f4eb05bc952a8c64bc72cb34448",
+      "body": "%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!5 &1\nTimeManager:\n  m_ObjectHideFlags: 0\n  Fixed Timestep:\n    m_Count: 2822399\n    m_Rate:\n      m_Denominator: 1\n      m_Numerator: 141120000\n  Maximum Allowed Timestep: 0.33333334\n  m_TimeScale: 1\n  Maximum Particle Timestep: 0.03\n"
+    }
+  ],
+  "adaptations": [
+    "Generated class/namespace and explicit FixedStep binding replace MonoBehaviour.FixedUpdate scheduling only.",
+    "BeginBurst retains the original reservation, initialization, RuleState charging and pending queue. Unrelated shop/reward/metrics hooks are excluded.",
+    "Physical BallBody initialization/deactivation and camera/UI bindings are implemented by the gallery adapter.",
+    "Original RuleState is copied with only its namespace changed.",
+    "Original OnGUI events, 6px release threshold, minimum aim y and 12–168 degree clamp are retained."
+  ]
+}

@@ -16,17 +16,17 @@ presenter.Initialize(brickVisual, ballTransform, camera, particleSprites,
 presenter.Hit(contactPoint, incomingDirection, brickTint, ImpactKind.Special);
 ```
 
-`Initialize` 的视觉目标应是专门的子物体，且其所有者负责生命周期。当前示例一个 Presenter 绑定一个目标／运动头／相机；多目标正式场景可拆分逐目标闪白挤压与场景级镜头、时钟、池服务，不能为每块砖创建一个抢写同一镜头的实例。初始化一次，后续重复调用 `Hit`。
+`Initialize` 的视觉目标应是专门的子物体，且其所有者负责生命周期。当前示例每个世界只创建一个 Presenter，共享相机、时钟、声音和128槽颜料池；用 `AddTarget(renderer)` 注册其余砖块，用 `AddTrail(ballTransform,yarnTexture)` 注册其余球。`Hit(...,hitTarget,brickWidth)` 指定真实命中对象与用于喷溅尺寸的砖宽。每个目标有独立闪白／挤压状态，各色图集独立材质并保留原贴图颜色。补齐或换色后调用 `ResetTarget(renderer)`，需要变更尺寸时调用 `SetVisualRestScale(renderer,scale)`。不要给15块砖各建一个抢写同一镜头的Presenter。
 
-运行时必须确保两个 Shader 被构建包含：`ImpactFeedback/SpriteFlash` 和 `Sprites/Default`。示例构建器生成引用它们的 Resources 材质。手动迁移时保留这些引用或加入项目已有的 Shader 收集配置。当前闪白 Shader 使用 Built-in 顶点变换，URP 2D 项目应移植到项目的 Sprite Shader 并保留 `_Flash` 与 alpha 行为。
+运行时必须确保三个 Shader 被构建包含：`ImpactFeedback/SpriteFlash`、`ImpactFeedback/YarnTrail` 和 `Sprites/Default`。示例构建器生成引用它们的 Resources 材质。手动迁移时保留这些引用或加入项目已有的 Shader 收集配置。当前闪白 Shader 使用 Built-in 顶点变换，URP 2D 项目应移植到项目的 Sprite Shader 并保留 `_Flash` 与 alpha 行为。
 
 ## 手动物理宿主
 
 展馆的两个场景使用 `SceneManager.CreateScene(name, new CreateSceneParameters(LocalPhysicsMode.Physics2D))`，各自拥有 `PhysicsScene2D`。它们不由默认场景自动推进。每帧：
 
 1. `presenter.Clock.Tick(Time.unscaledTime, Time.unscaledDeltaTime, paused)`。
-2. 把 `Clock.Delta` 累加到宿主固定步预算；以1/120秒步长调用该场景的 `Simulate`。
-3. 真实碰撞回调可能申请顿帧；检查 `Clock.Stopped` 并结束当前帧剩余物理步，避免本帧继续推进。
+2. 把 `Clock.Delta` 累加到宿主固定步预算；按原项目 `TimeManager` 的 `Time.fixedDeltaTime` 调用该场景的 `Simulate`。
+3. 每个球在固定步与碰撞点调用 `SampleTrail(index,position)`，发射时 `Trails[index].Start(position)`、回收时 `Stop()`；真实碰撞回调可能申请顿帧；检查 `Clock.Stopped` 并结束当前帧剩余物理步，避免本帧继续推进。
 4. 调用 `presenter.Step(presentationDelta, realDelta)`，镜头恢复使用真实时间，粒子、挤压、拖尾使用模拟时间。
 
 示例每帧最多16子步，单帧输入delta最多.1秒，长卡顿时主动丢弃部分时间，避免补帧失控。这是展示宿主的过载策略，正式游戏按自己的模拟规则选择。A/B两侧以相同初始位置和速度开始；顿帧后墙钟时刻的物理位置自然不同，不应再强制同步球位。
@@ -53,3 +53,19 @@ presenter.Hit(contactPoint, incomingDirection, brickTint, ImpactKind.Special);
 ## 验证重点
 
 物理顿帧需要观察真实刚体位置保持且基准侧继续；慢镜需要观察真实运动距离／时钟倍率。挤压检查碰撞体尺寸和根坐标不变。对多个连续事件检查声部、粒子、拖尾上限；重复暂停与恢复检查时钟和镜头。构建成功不等于实际运行检查通过。
+
+## 棋盘补齐
+
+补齐是展馆宿主的循环体验规则，不自动写入正式游戏玩法。15格对象在初始化时预建，破碎播放期间暂时关闭该格碰撞体；第16帧结束立刻恢复同一格、同颜色的首帧与碰撞体，无额外空白时间。关闭序列帧后命中即恢复。补齐不重建对象池，不重置其他砖的受击状态，不中断五球队列。
+
+## 原项目发射接入
+
+`ProjectLaunch/GameSession.Launch.generated.cs` 由 `scripts/import_project_launch.py` 从当前项目 GameSession.cs 与 ChainLiveSession.cs 提取。TryShootCore、NormalizeAimDirection、BufferChainShot、PromoteBufferedChainShot、ReturnReserved、ChainCanLaunch、SpawnPosition保持原文；FixedStep使用原FixedUpdate的发射段，BeginBurst保留整组预留、首球初始化、RuleState扣账和待发队列段。与展馆无关的商店、奖励、埋点等钩子不接入。
+
+RuleState.cs只改命名空间；LevelData默认球数、间隔、球速及GameSession的.86速度适配直接从源代码提取，TimeManager.asset直接复用。禁止另起一套次球计时器。
+
+`ProjectBattleInput.generated.cs` 复用 AppUI.OnGUI 的桌面事件路径、UIBlocked射线检测、UpdateAim方向算法与EndAim至少6像素移动判定；只移除教程／装饰／埋点，原BoardDisplay坐标函数由展馆仿射变换与稳定相机坐标绑定替代。
+
+`LaunchHostAdapter.cs` 把原BallBody.Initialize／Deactivate接到隔离物理场景，并关闭展馆不存在的目标、商店、机关状态；不改射击准入、排队、缓存或方向算法。展馆使用均匀WorldScale=.6把源坐标与速度映射到展示区，源炮口位置与方向表达式保持原样。输入6像素判定在屏幕空间中不缩放。
+
+复用原实时连发：前一组仍在飞行时可按0.55模拟秒冷却继续发射；在待发队列或冷却中允许缓存一次松手，再一次额外松手不覆盖缓存。对象池按原整组预留规则扩展，没有额外的5个在飞球上限。暂停与重置清除缓存，不会自动发射。

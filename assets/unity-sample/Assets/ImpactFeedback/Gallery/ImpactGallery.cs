@@ -10,14 +10,14 @@ using A=ImpactFeedback.Gallery.GalleryArt;
 
 namespace ImpactFeedback.Gallery {
  public sealed class ImpactGallery:MonoBehaviour {
-  public static ImpactGallery Instance;public ImpactProfile Profile=new ImpactProfile();
+  public static ImpactGallery Instance;public ImpactProfile Profile=ImpactProfile.GalleryDefault();
   public GalleryLane Baseline{get;private set;}public GalleryLane Active{get;private set;}
   public bool Paused{get;private set;}public int Mode{get;private set;}=1;public Effect Selected{get;private set;}
   public static readonly string[] Names={"闪白","拖尾","震屏","顿帧","慢镜","碎片","挤压","升调"};
-  static readonly string[] Hints={"命中表面短促混白，保留透明轮廓。","双层毛线描绘球路，保留碰撞折返点。","镜头独立位移，碰撞体与界面保持稳定。","真实暂停演示侧物理；界面和恢复计时继续。","降低演示侧物理时钟倍率，结束后恢复。","复用果冻粒子，最多同时存在 128 个。","沿受力方向压缩，只改变视觉子层。","连续命中逐次升调；间隔超过阈值后重置。"};
-  RectTransform content,parameters,stage;Text status,message,title,description,modeLabel,leftLabel,rightLabel,autoLabel,pauseLabel,eventLabel,sequenceLabel;Text[] effectLabels=new Text[8],switchLabels=new Text[8],colourLabels=new Text[5];
+  static readonly string[] Hints={"命中表面短促混白，保留透明轮廓。","双层毛线描绘球路，保留碰撞折返点。","首下清晰冲击并衰减回弹，HUD与瞄准稳定。","真实暂停演示侧物理；界面和恢复计时继续。","降低演示侧物理时钟倍率，结束后恢复。","原版液滴甩出后落为颜料色斑，固定128槽。","沿受力方向压缩，只改变视觉子层。","连续命中逐次升调；间隔超过阈值后重置。"};
+  RectTransform content,parameters,stage;Text status,message,title,description,modeLabel,leftLabel,rightLabel,pauseLabel,eventLabel,sequenceLabel;Text[] effectLabels=new Text[8],switchLabels=new Text[8],colourLabels=new Text[5];
   int colour;bool sequences=true;
-  int screenW,screenH;float demoTimer;bool auto=true,focused=true;ImpactKind kind=ImpactKind.Special;
+  int screenW,screenH;bool focused=true;ImpactFeedback.ProjectLaunch.ProjectBattleInput projectInput;ImpactKind kind=ImpactKind.Special;
   readonly List<Parameter> rows=new List<Parameter>();
   public string PresetPath=>Path.Combine(Application.persistentDataPath,"impact-profile.json");
   sealed class Parameter{public string name,unit;public float min,max;public bool integer;public Func<ImpactProfile,float> get;public Action<ImpactProfile,float> set;}
@@ -25,6 +25,9 @@ namespace ImpactFeedback.Gallery {
   void Awake(){Instance=this;Application.targetFrameRate=60;QualitySettings.vSyncCount=0;Application.runInBackground=true;
    var background=new GameObject("Background").AddComponent<Camera>();background.clearFlags=CameraClearFlags.SolidColor;background.backgroundColor=new Color32(252,245,228,255);background.cullingMask=0;background.depth=-10;
    Baseline=new GalleryLane("Baseline world",8,Profile,false);Active=new GalleryLane("Feedback world",9,Profile,true);BuildUI();Apply();
+   var inputHost=new ImpactFeedback.ProjectLaunch.InputSession{LauncherPosition=Active.Production.LauncherPosition,Paused=()=>Paused,
+    Shoot=TryLaunchDirection,Aim=d=>{if(d.HasValue){Baseline.SetAim(d.Value);Active.SetAim(d.Value);}else{Baseline.Production.SetAim(null);Active.Production.SetAim(null);}}};
+   projectInput=new ImpactFeedback.ProjectLaunch.ProjectBattleInput(inputHost,ChooseCamera,ScreenToProjectWorld);
    if(Array.IndexOf(Environment.GetCommandLineArgs(),"--gallery-qa")>=0)gameObject.AddComponent<GalleryQA>();
   }
   void BuildUI(){
@@ -32,7 +35,7 @@ namespace ImpactFeedback.Gallery {
    if(FindFirstObjectByType<EventSystem>()==null)new GameObject("EventSystem",typeof(EventSystem),typeof(StandaloneInputModule));
    content=A.Rect(canvas.transform,"1600 x 900 content",0,0,1600,900);content.anchorMin=content.anchorMax=Vector2.one*.5f;content.pivot=Vector2.one*.5f;content.anchoredPosition=Vector2.zero;
    A.Image(content,"decor_cat_head",30,22,70,66);A.Label(content,"碰撞反馈实验室",112,20,540,55,36);A.Label(content,"IMPACT FEEDBACK  /  8 种手感，边玩边调",114,73,660,30,18,A.Muted);
-   A.Label(content,"Unity 2D · Windows · v0.1.0",1190,42,370,35,18,A.Muted);
+   A.Label(content,"Unity 2D · Windows · v0.2.0",1190,42,370,35,18,A.Muted);
    for(int i=0;i<5;i++){int k=i;colourLabels[i]=A.Button(content,FiveColourBricks.Names[i],782+i*76,76,70,38,()=>SetColour(k)).GetComponentInChildren<Text>();}
    A.Image(content,"card_cream_help",24,126,248,720,true);A.Label(content,"效果目录",46,145,210,38,25);
    for(int i=0;i<8;i++){int k=i;var b=A.Button(content,Names[i],42,197+i*61,164,52,()=>Select((Effect)k));effectLabels[i]=b.GetComponentInChildren<Text>();
@@ -43,14 +46,14 @@ namespace ImpactFeedback.Gallery {
    modeLabel=A.Label(content,"",776,132,380,34,19,A.Muted);
    stage=A.Rect(content,"Stage viewport",296,222,860,420);
    leftLabel=A.Label(content,"关闭反馈",314,184,385,33,22);rightLabel=A.Label(content,"开启反馈",750,184,385,33,22);
-   A.Label(content,"相同球速与方向 · 五色砖块原序列帧",310,649,630,30,18,A.Muted);
+   A.Label(content,"手动5球 · 3行×5列 · 消失即补齐",310,649,630,30,18,A.Muted);
    sequenceLabel=A.Button(content,"序列帧：开",972,648,184,38,()=>{sequences=!sequences;Apply();}).GetComponentInChildren<Text>();
-   A.Button(content,"发射 / 空格",296,697,175,56,Launch,true);
-   autoLabel=A.Button(content,"自动：开",481,697,160,56,()=>{auto=!auto;Apply();}).GetComponentInChildren<Text>();
+   A.Button(content,"发射5球 / 空格",296,697,175,56,Launch,true);
+   A.Label(content,"每组5球\n间隔0.10秒",492,697,150,56,18,A.Muted);
    pauseLabel=A.Button(content,"暂停",651,697,132,56,()=>SetPaused(!Paused)).GetComponentInChildren<Text>();
    A.Button(content,"重置场景",793,697,170,56,ResetScene);
    eventLabel=A.Button(content,"特殊爆发",973,697,183,56,()=>{kind=(ImpactKind)(((int)kind+1)%3);Apply();}).GetComponentInChildren<Text>();
-   status=A.Label(content,"",300,766,850,62,18);message=A.Label(content,"在展示区点击瞄准发射；参数拖动后立即生效。",300,830,850,42,18,A.Muted);
+   status=A.Label(content,"",300,760,850,70,16);message=A.Label(content,"沿用游戏内拖动瞄准、松手发射；支持连发与一次输入缓存。",300,830,850,42,18,A.Muted);
    A.Image(content,"card_cream_help",1176,126,400,720,true);
    title=A.Label(content,"",1200,144,350,40,27);description=A.Label(content,"",1200,191,350,42,17,A.Muted);description.name="Effect explanation";parameters=A.Rect(content,"Parameter rows",1200,238,350,420);
    A.Button(content,"恢复单项",1195,680,170,48,ResetSelected);A.Button(content,"教学强化",1377,680,170,48,()=>SetProfile(ImpactProfile.Teaching()));
@@ -58,7 +61,7 @@ namespace ImpactFeedback.Gallery {
    A.Label(content,"配置使用 JSON，可随 skill 带回项目。",1200,800,350,28,16,A.Muted);
    RefreshParameters();Resize();
   }
-  public void Select(Effect e){Selected=e;RefreshParameters();Apply();demoTimer=0;}
+  public void Select(Effect e){Selected=e;RefreshParameters();Apply();}
   public void SetMode(int mode){Mode=mode;Apply();Resize();ResetScene();}
   void Apply(){Profile.Clamp();Baseline.Presenter.Profile=Active.Presenter.Profile=Profile;
    Active.Presenter.Selected=Selected;Active.Presenter.ForceSelected=Mode!=2;Active.Kind=Baseline.Kind=kind;
@@ -66,7 +69,7 @@ namespace ImpactFeedback.Gallery {
    // The baseline stays silent; fixed-pitch audio remains audible on the feedback side.
    Baseline.Presenter.AllowEffects=false;Baseline.Presenter.PlayAudio=false;
    for(int i=0;i<8;i++){effectLabels[i].text=((int)Selected==i?"● ":"")+Names[i];switchLabels[i].text=Profile.Enabled((Effect)i)?"开":"关";switchLabels[i].color=Profile.Enabled((Effect)i)?A.Mint:A.Muted;}
-   autoLabel.text="自动："+(auto?"开":"关");eventLabel.text=kind==ImpactKind.Hit?"普通命中":kind==ImpactKind.Break?"破砖喷散":"特殊爆发";
+   eventLabel.text=kind==ImpactKind.Hit?"普通命中":kind==ImpactKind.Break?"破砖喷散":"特殊爆发";
    modeLabel.text=Mode==2?"八项自由组合":"当前单项："+Names[(int)Selected];
    leftLabel.text=Mode==1?"关闭反馈 · 相同初始条件":"";rightLabel.text=Mode==1?"开启反馈 · "+Names[(int)Selected]:Mode==2?"组合体验":"单项体验 · "+Names[(int)Selected];
   }
@@ -77,10 +80,10 @@ namespace ImpactFeedback.Gallery {
    switch(Selected){
     case Effect.Flash:Add("混白强度","",0,1,p=>p.flashStrength,(p,v)=>p.flashStrength=v);Add("持续时间","ms",5,400,p=>p.flashMs,(p,v)=>p.flashMs=v,true);break;
     case Effect.Trail:Add("最大长度","单位",.1f,5,p=>p.trailLength,(p,v)=>p.trailLength=v);Add("线芯宽度","单位",.02f,.6f,p=>p.trailWidth,(p,v)=>p.trailWidth=v);Add("保留寿命","s",.03f,1,p=>p.trailLife,(p,v)=>p.trailLife=v);Add("透明度","",0,1,p=>p.trailOpacity,(p,v)=>p.trailOpacity=v);break;
-    case Effect.Shake:Add("视口高度比例","%",0,2,p=>p.shakeHeight*100,(p,v)=>p.shakeHeight=v/100);Add("持续时间","ms",40,800,p=>p.shakeMs,(p,v)=>p.shakeMs=v,true);break;
+    case Effect.Shake:Add("视口高度比例","%",0,4,p=>p.shakeHeight*100,(p,v)=>p.shakeHeight=v/100);Add("持续时间","ms",40,800,p=>p.shakeMs,(p,v)=>p.shakeMs=v,true);break;
     case Effect.HitStop:Add("顿帧时长","ms",0,250,p=>p.hitStopMs,(p,v)=>p.hitStopMs=v,true);Add("恢复后的冷却","ms",0,1500,p=>p.hitStopCooldownMs,(p,v)=>p.hitStopCooldownMs=v,true);Add("每秒暂停预算","ms",0,500,p=>p.hitStopBudgetMs,(p,v)=>p.hitStopBudgetMs=v,true);break;
     case Effect.SlowMotion:Add("时间倍率","倍",.05f,1,p=>p.slowScale,(p,v)=>p.slowScale=v);Add("持续时间","ms",0,1500,p=>p.slowMs,(p,v)=>p.slowMs=v,true);break;
-    case Effect.Fragments:Add("单次数量","个",0,64,p=>p.fragmentCount,(p,v)=>p.fragmentCount=Mathf.RoundToInt(v),true);Add("喷散速度","",.1f,12,p=>p.fragmentSpeed,(p,v)=>p.fragmentSpeed=v);Add("碎片尺寸","单位",.03f,.5f,p=>p.fragmentSize,(p,v)=>p.fragmentSize=v);Add("存在寿命","s",.1f,3,p=>p.fragmentLife,(p,v)=>p.fragmentLife=v);break;
+    case Effect.Fragments:Add("单次数量","个",0,64,p=>p.fragmentCount,(p,v)=>p.fragmentCount=Mathf.RoundToInt(v),true);Add("液滴飞行速度","",.1f,12,p=>p.fragmentSpeed,(p,v)=>p.fragmentSpeed=v);Add("色斑大小","比例",.03f,.5f,p=>p.fragmentSize,(p,v)=>p.fragmentSize=v);Add("存在寿命","s",.1f,3,p=>p.fragmentLife,(p,v)=>p.fragmentLife=v);break;
     case Effect.Squash:Add("挤压幅度","",0,.45f,p=>p.squashAmount,(p,v)=>p.squashAmount=v);Add("回弹时长","ms",50,1000,p=>p.squashMs,(p,v)=>p.squashMs=v,true);break;
     case Effect.Pitch:Add("每次升调","",0,.15f,p=>p.pitchStep,(p,v)=>p.pitchStep=v);Add("最高音高","倍",1,2,p=>p.pitchMax,(p,v)=>p.pitchMax=v);Add("间隔重置","ms",200,5000,p=>p.pitchResetMs,(p,v)=>p.pitchResetMs=v,true);break;
    }
@@ -98,15 +101,19 @@ namespace ImpactFeedback.Gallery {
    var handleArea=A.Rect(track,"Handle area",9,0,276,22);var handle=A.Image(handleArea,"toggle_knob",0,-3,28,28);handle.raycastTarget=true;handle.rectTransform.pivot=Vector2.one*.5f;
    slider.handleRect=handle.rectTransform;slider.targetGraphic=handle;slider.SetValueWithoutNotify(p.get(Profile));
    A.Label(parameters,p.unit,306,y+32,44,30,15,A.Muted);
-   slider.onValueChanged.AddListener(v=>{p.set(Profile,v);Profile.Clamp();field.SetTextWithoutNotify(Format(p.get(Profile)));demoTimer=0;});
-   field.onEndEdit.AddListener(s=>{if(float.TryParse(s,NumberStyles.Float,CultureInfo.InvariantCulture,out float v)&&!float.IsNaN(v)&&!float.IsInfinity(v)){v=Mathf.Clamp(v,p.min,p.max);p.set(Profile,p.integer?Mathf.Round(v):v);Profile.Clamp();slider.SetValueWithoutNotify(p.get(Profile));}field.SetTextWithoutNotify(Format(p.get(Profile)));demoTimer=0;});
+   slider.onValueChanged.AddListener(v=>{p.set(Profile,v);Profile.Clamp();field.SetTextWithoutNotify(Format(p.get(Profile)));});
+   field.onEndEdit.AddListener(s=>{if(float.TryParse(s,NumberStyles.Float,CultureInfo.InvariantCulture,out float v)&&!float.IsNaN(v)&&!float.IsInfinity(v)){v=Mathf.Clamp(v,p.min,p.max);p.set(Profile,p.integer?Mathf.Round(v):v);Profile.Clamp();slider.SetValueWithoutNotify(p.get(Profile));}field.SetTextWithoutNotify(Format(p.get(Profile)));});
   }
   public void SetProfile(ImpactProfile p){Profile=p;Profile.Clamp();Active.Presenter.ResetPresentation();Baseline.Presenter.ResetPresentation();RefreshParameters();Apply();}
   public void ResetSelected(){var d=new ImpactProfile();foreach(var r in rows)r.set(Profile,r.get(d));Profile.Enable(Selected,true);RefreshParameters();Apply();}
   public void SetColour(int value){colour=Mathf.Clamp(value,0,4);Baseline.SetColour(colour);Active.SetColour(colour);Apply();ResetScene();}
-  public void SetPaused(bool paused){Paused=paused;if(paused){Baseline.Presenter.ResetPresentation();Active.Presenter.ResetPresentation();}pauseLabel.text=paused?"继续":"暂停";}
-  public void Launch(){if(Paused)SetPaused(false);Baseline.Launch();Active.Launch();demoTimer=0;}
-  public void ResetScene(){SetPaused(false);Baseline.Auto=Active.Auto=auto;Baseline.Reset();Active.Reset();demoTimer=0;}
+  public void SetPaused(bool paused){projectInput?.Cancel();Paused=paused;Baseline.Production.SetPaused(paused);Active.Production.SetPaused(paused);if(paused){Baseline.Presenter.ResetPresentation();Active.Presenter.ResetPresentation();}pauseLabel.text=paused?"继续":"暂停";}
+  public void Launch(){TryLaunchDirection(Active.InitialVelocity);}
+  bool TryLaunchDirection(Vector2 direction){if(Paused)return false;Baseline.SetAim(direction);Active.SetAim(direction);bool b=Baseline.Launch(),a=Active.Launch();message.text=a&&b?"项目原发射：每组5球 · 支持飞行中续发与一次松手缓存":"项目原发射状态暂不接受额外输入";return a&&b;}
+  Camera ChooseCamera(Vector2 p){if(Active.Camera.pixelRect.Contains(p))return Active.Camera;if(Baseline.Camera.enabled&&Baseline.Camera.pixelRect.Contains(p))return Baseline.Camera;return null;}
+  Vector2 ScreenToProjectWorld(Camera camera,Vector2 p){var lane=camera==Active.Camera?Active:Baseline;Vector2 world=camera.ScreenToWorldPoint(p);world-=(Vector2)lane.Presenter.CameraOffset;return lane.ToProject(world);}
+  void OnGUI(){projectInput?.ProcessUnityGUI();}
+  public void ResetScene(){projectInput?.Cancel();SetPaused(false);Baseline.Reset();Active.Reset();}
   public void Save(){try{Profile.Clamp();var json=JsonUtility.ToJson(Profile,true);File.WriteAllText(PresetPath+".tmp",json);if(File.Exists(PresetPath))File.Replace(PresetPath+".tmp",PresetPath,null);else File.Move(PresetPath+".tmp",PresetPath);message.text="已保存："+PresetPath;}catch(Exception e){message.text="保存失败："+e.Message;}}
   public void Load(){try{var p=JsonUtility.FromJson<ImpactProfile>(File.ReadAllText(PresetPath));if(p==null||p.schemaVersion!=1)throw new InvalidDataException("不支持的参数版本");SetProfile(p);message.text="已载入自定义预设";}catch(Exception e){message.text="载入失败："+e.Message;}}
   void Resize(){screenW=Screen.width;screenH=Screen.height;float scale=Mathf.Min(screenW/1600f,screenH/900f);content.localScale=Vector3.one*scale;
@@ -116,13 +123,12 @@ namespace ImpactFeedback.Gallery {
   void Update(){if(content==null)return;if(Screen.width!=screenW||Screen.height!=screenH)Resize();float dt=Mathf.Min(.1f,Time.unscaledDeltaTime);bool paused=Paused||!focused;
    if(GetComponent<GalleryQA>()!=null)paused=Paused; // Headless QA is allowed to advance without desktop focus.
    Baseline.Tick(Time.unscaledTime,dt,paused);Active.Tick(Time.unscaledTime,dt,paused);
-   if(!paused&&auto){demoTimer+=dt;bool rapidPitch=Selected==Effect.Pitch&&Mode!=2;float interval=rapidPitch?1.05f:2.8f;if(demoTimer>interval){if(rapidPitch){Baseline.Ball.position=Active.Ball.position=new Vector2(0,.20f);Baseline.Ball.linearVelocity=Active.Ball.linearVelocity=Vector2.up*5.9f;Physics2D.SyncTransforms();demoTimer=0;}else Launch();}}
    bool editing=EventSystem.current!=null&&EventSystem.current.currentSelectedGameObject!=null&&EventSystem.current.currentSelectedGameObject.GetComponent<InputField>()!=null;
    if(!editing&&Input.GetKeyDown(KeyCode.Space))Launch();if(!editing&&Input.GetKeyDown(KeyCode.P))SetPaused(!Paused);
-   if(Input.GetMouseButtonDown(0)&&RectTransformUtility.RectangleContainsScreenPoint(stage,Input.mousePosition)&&!paused){var cam=Active.Camera.pixelRect.Contains(Input.mousePosition)?Active.Camera:Baseline.Camera;Vector2 world=cam.ScreenToWorldPoint(Input.mousePosition);Vector2 aim=world-new Vector2(-.8f,-2.4f);aim.y=Mathf.Max(.5f,aim.y);Baseline.InitialVelocity=Active.InitialVelocity=aim.normalized*5.9f;Launch();}
-   var clock=Active.Presenter.Clock;status.text="命中 "+Active.Presenter.ImpactCount+"    音高 "+Active.Presenter.LastPitch.ToString("0.00")+"×    粒子 "+Active.Presenter.ActiveParticles+" / 128\n顿帧：设定 "+Profile.hitStopMs.ToString("0")+" ms / 预算后 "+clock.RequestedStopMs.ToString("0")+" ms / 实际 "+clock.ActualStopMs.ToString("0.0")+" ms    时间倍率 "+clock.Scale.ToString("0.00")+"×";
+   var clock=Active.Presenter.Clock;status.text="本组已发射 "+Active.SpawnedThisVolley+"/5 · 飞行 "+Active.ActiveBalls+" · 缓存 "+(Active.Production.HasBufferedShot?1:0)+" · 补齐 "+Active.Refills+" · 命中 "+Active.Presenter.ImpactCount+" · 音高 "+Active.Presenter.LastPitch.ToString("0.00")+"×\n顿帧 "+Profile.hitStopMs.ToString("0")+" / 实际 "+clock.ActualStopMs.ToString("0.0")+" ms · 时间倍率 "+clock.Scale.ToString("0.00")+"× · 震屏峰值 "+Active.Presenter.PeakShakePixels.ToString("0.0")+" px\n液滴/色斑 "+Active.Presenter.ActiveParticles+"/128 · 已落地 "+Active.Presenter.LandedParticles;
+
   }
-  void OnApplicationFocus(bool f){focused=f;if(!f){Baseline?.Presenter.ResetPresentation();Active?.Presenter.ResetPresentation();}}
+  void OnApplicationFocus(bool f){projectInput?.Cancel();focused=f;if(!f){Baseline?.Presenter.ResetPresentation();Active?.Presenter.ResetPresentation();}}
   void OnApplicationPause(bool p){if(p){Baseline?.Presenter.ResetPresentation();Active?.Presenter.ResetPresentation();}}
   void OnDestroy(){if(Instance==this)Instance=null;}
  }

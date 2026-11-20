@@ -15,6 +15,12 @@ for color in ['pink','yellow','mint','blue','lilac']:
  copy('Resources/Art/FiveBakedV80/ordinary-'+color+'.png','Resources/Gallery/Bricks/ordinary-'+color+'.png')
 copy('Resources/Art/FiveBakedV80/footprints.json','Resources/Gallery/Bricks/footprints.json')
 copy('Resources/Art/CombatFeedback79/jelly_particles.png','Resources/Gallery/particles.png')
+copy('Resources/Art/CombatFeedback79/paint_splatters.png','Resources/Gallery/paint_splatters.png')
+# Preserve the project's calibrated yarn-core shader; replace only board-space projection.
+s=(src/'Resources/YarnTrail79.shader').read_text(encoding='utf-8-sig')
+s=s.replace('Garden/YarnTrail79','ImpactFeedback/YarnTrail').replace('   #include "BoardDisplay.cginc"\n','').replace('BoardClip(v.vertex)','UnityObjectToClipPos(v.vertex)')
+d=out/'ImpactFeedback/Runtime/YarnTrail.shader';d.write_text(s,encoding='utf-8')
+records.append(dict(source='Resources/YarnTrail79.shader',destination=str(d.relative_to(root)).replace('\\','/'),adaptation='Original fiber UV calibration and glow; standard Unity projection replaces BoardClip.'))
 for name in ['MaokenZhuyuanTi.ttf','MaokenZhuyuanTi-OFL.txt','MaokenZhuyuanTi-OFL_ZHS.txt','MaokenZhuyuanTi-字体授权说明.txt']:
  copy('Resources/Fonts/'+name,'Resources/Fonts/'+name)
 copy('Resources/Audio/Jelly/AI/sfx/hit.wav','Resources/Gallery/hit.wav')

@@ -1,16 +1,17 @@
 """Package the validated skill, source sample, Windows runtime and provenance."""
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
-import json,hashlib,re
+import json,hashlib,re,subprocess,sys
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.1.0'
+VERSION='0.2.0'
 EXCLUDED={'.git','Library','Temp','Obj','Logs','UserSettings','.vs','__pycache__','Builds','dist','evidence'}
 def source_files():
  for p in ROOT.rglob('*'):
   if p.is_file() and not any(x in EXCLUDED for x in p.relative_to(ROOT).parts):yield p
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 def main():
+ subprocess.run([sys.executable,str(ROOT/'scripts/verify_project_launch.py')],check=True)
  build=ROOT/'Builds/Windows';summary=json.loads((build/'build-summary.json').read_text(encoding='utf-8'))
  if summary['result']!='Succeeded' or summary['errors']:raise SystemExit('A successful build is required')
  assembly=build/'ImpactFeedbackGallery_Data/Managed/Assembly-CSharp.dll'
