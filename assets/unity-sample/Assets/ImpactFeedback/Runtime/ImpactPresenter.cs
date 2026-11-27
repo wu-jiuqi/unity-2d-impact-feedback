@@ -7,6 +7,8 @@ namespace ImpactFeedback {
   public int ImpactCount{get;private set;}public float LastPitch{get;private set;}=1;
   public int LastNoteIndex{get;private set;}public string LastNote=>SolfeggioScale.Names[LastNoteIndex];public int NotesPlayed{get;private set;}
   public int ActiveParticles{get;private set;}public int PeakParticles{get;private set;}public int ActivePaintMarks{get;private set;}public int LandedParticles{get;private set;}
+  public int ActiveLandedPetals{get;private set;}
+  public Rect? PetalLandingBounds;public int PetalAirSortingOrder=78,PetalGroundSortingOrder=20;
   public float PeakShakePixels{get;private set;}public Vector3 CameraOffset=>view==null?Vector3.zero:view.transform.localPosition-cameraRest;
   public readonly List<YarnFlightTrail> Trails=new List<YarnFlightTrail>();readonly List<Transform> heads=new List<Transform>();
   sealed class Target{public SpriteRenderer face;public Vector3 rest;public Vector2 incoming;public float flashAge=9,squashAge=9;public MaterialPropertyBlock block=new MaterialPropertyBlock();}
@@ -14,15 +16,15 @@ namespace ImpactFeedback {
   Camera view;Vector3 cameraRest;Material flashMaterial;readonly Dictionary<Texture,Material> faceMaterials=new Dictionary<Texture,Material>();float alphaCutoff;float shakeAge=9,shakeDuration=.24f,shakeAmplitude;Vector2 shakeAxis=Vector2.right;
   float pitchAt=-99,nextAudio;int pitchChain,voiceCursor;AudioSource[] voices;AudioClip clip;SolfeggioScale notes;
   System.Random random=new System.Random(79012);Sprite[] particleSprites;
-  struct Drop{public SpriteRenderer view;public Vector2 origin,target;public Color color;public float age,life,size,travel,rotation;public int sprite;public bool landed;}
+  struct Drop{public SpriteRenderer view;public Vector2 origin,target;public Color color;public float age,life,size,travel,rotation,lift,spin,phase,cell;public int sprite;public bool landed,petal;}
   readonly Drop[] pool=new Drop[128];
   public bool Enabled(Effect e)=>AllowEffects&&Profile.Enabled(e)&&(!ForceSelected||Selected==e);
   public void ResetNotes(){pitchChain=0;pitchAt=-99;nextAudio=0;LastPitch=1;LastNoteIndex=0;}
   public void Initialize(SpriteRenderer target,Transform movingHead,Camera camera,Sprite[] particles,AudioClip sound,Texture2D yarn){
-   primary=target;view=camera;cameraRest=view.transform.localPosition;particleSprites=particles;clip=sound;notes=new SolfeggioScale();
+   primary=target;view=camera;cameraRest=view.transform.localPosition;particleSprites=particles;var petals=PetalAtlas.Frames;clip=sound;notes=new SolfeggioScale();
    flashMaterial=new Material(Shader.Find("ImpactFeedback/SpriteFlash"));AddTarget(target);AddTrail(movingHead,yarn);
    voices=new AudioSource[12];for(int i=0;i<voices.Length;i++){voices[i]=gameObject.AddComponent<AudioSource>();voices[i].playOnAwake=false;voices[i].spatialBlend=0;}
-   for(int i=0;i<pool.Length;i++){var o=new GameObject("Project pooled paint "+i);o.transform.SetParent(transform,false);o.layer=target.gameObject.layer;var sr=o.AddComponent<SpriteRenderer>();sr.sprite=particles[i%4];sr.sortingOrder=78;o.SetActive(false);pool[i].view=sr;}
+   for(int i=0;i<pool.Length;i++){var o=new GameObject("Project pooled particle "+i);o.transform.SetParent(transform,false);o.layer=target.gameObject.layer;var sr=o.AddComponent<SpriteRenderer>();sr.sprite=particles[i%4];sr.sortingOrder=78;o.SetActive(false);pool[i].view=sr;}
   }
   void BindFace(SpriteRenderer target){var texture=target.sprite.texture;if(!faceMaterials.TryGetValue(texture,out var material)){material=new Material(flashMaterial){mainTexture=texture};material.SetFloat("_AlphaCutoff",alphaCutoff);faceMaterials.Add(texture,material);}target.sharedMaterial=material;}
   public void AddTarget(SpriteRenderer target){if(targets.ContainsKey(target))return;BindFace(target);targets.Add(target,new Target{face=target,rest=target.transform.localScale});}
@@ -70,24 +72,50 @@ namespace ImpactFeedback {
   }
   float R(float min,float max)=>min+(float)random.NextDouble()*(max-min);
   void Emit(Vector2 pos,Vector2 incoming,Color color,float cell){
+   if(Profile.petalFragments){EmitPetals(pos,incoming,cell);return;}
    int remaining=Profile.fragmentCount,emitted=0;float lobe=Mathf.Atan2(incoming.y,incoming.x)+R(-1.2f,1.2f);
    for(int i=0;i<pool.Length&&remaining>0;i++){ref var d=ref pool[i];if(d.view.gameObject.activeSelf)continue;remaining--;
     float angle=emitted<8?lobe+R(-1.05f,1.05f):R(0,Mathf.PI*2),radius=Mathf.Sqrt(R(Profile.paintMinRadius*Profile.paintMinRadius,Profile.paintMaxRadius*Profile.paintMaxRadius));
     d.origin=pos;d.target=pos+new Vector2(Mathf.Cos(angle),Mathf.Sin(angle))*cell*radius;d.color=color;d.age=0;d.life=Mathf.Max(.2f,Profile.fragmentLife+R(-.10f,.12f));
-    d.travel=R(.08f,.16f)*4/Profile.fragmentSpeed;d.size=cell*(emitted<4?R(.75f,1.15f):R(.25f,.55f))*(Profile.fragmentSize/.16f);d.rotation=R(-180,180);d.sprite=4+random.Next(4);d.landed=false;
+    d.travel=R(.08f,.16f)*4/Profile.fragmentSpeed;d.size=cell*(emitted<4?R(.75f,1.15f):R(.25f,.55f))*(Profile.fragmentSize/.16f);d.rotation=R(-180,180);d.sprite=4+random.Next(4);d.landed=false;d.petal=false;
     d.view.sprite=particleSprites[1];d.view.sortingOrder=78;d.view.transform.position=pos;d.view.transform.rotation=Quaternion.Euler(0,0,angle*Mathf.Rad2Deg+135);d.view.color=color;Size(ref d,.55f,1.8f);d.view.gameObject.SetActive(true);emitted++;
    }
   }
+  void EmitPetals(Vector2 pos,Vector2 incoming,float cell){
+   int emitted=0;float min=Mathf.Clamp(Profile.paintMinRadius,.3f,1),max=Mathf.Clamp(Profile.paintMaxRadius,min,2.8f);
+   float lobe=Mathf.Atan2(incoming.y,incoming.x)+R(-1.2f,1.2f);
+   for(int i=0;i<pool.Length&&emitted<Profile.fragmentCount;i++){ref var d=ref pool[i];if(d.view.gameObject.activeSelf)continue;
+    float angle=emitted<8?lobe+R(-1.05f,1.05f):R(0,Mathf.PI*2),radius=Mathf.Sqrt(R(min*min,max*max));
+    d.origin=pos;d.target=pos+new Vector2(Mathf.Cos(angle),Mathf.Sin(angle)*.55f-.45f)*cell*radius;
+    if(PetalLandingBounds.HasValue){var b=PetalLandingBounds.Value;d.target=new Vector2(Mathf.Clamp(d.target.x,b.xMin,b.xMax),Mathf.Clamp(d.target.y,b.yMin,b.yMax));}
+    d.age=0;d.travel=R(.85f,1.5f)*4/Profile.fragmentSpeed;d.life=d.travel+Mathf.Max(.8f,Profile.fragmentLife)+R(.15f,.65f)+.55f;
+    d.size=cell*R(.30f,.48f)*(Profile.fragmentSize/.16f);d.rotation=R(-180,180);d.lift=R(.6f,1.25f)*cell;d.spin=R(-170,170);d.phase=R(0,Mathf.PI*2);d.cell=cell;
+    d.sprite=random.Next(16);d.petal=true;d.landed=false;d.view.sprite=PetalAtlas.Frames[d.sprite];d.view.sortingOrder=PetalAirSortingOrder;
+    d.view.transform.position=pos;d.view.transform.rotation=Quaternion.Euler(0,0,d.rotation);d.view.color=Color.white;Size(ref d,1);d.view.gameObject.SetActive(true);emitted++;
+   }
+  }
+  void PetalStep(ref Drop d){
+   if(d.age<d.travel){float u=d.age/d.travel,arc=Mathf.Sin(u*Mathf.PI),flight=1-(1-u)*(1-u);
+    d.view.transform.position=Vector2.Lerp(d.origin,d.target,flight)+new Vector2(Mathf.Sin(u*11+d.phase)*arc*d.cell*.16f,arc*d.lift);
+    d.view.transform.rotation=Quaternion.Euler(0,0,d.rotation+d.spin*u+Mathf.Sin(u*9+d.phase)*arc*20);d.view.color=Color.white;Size(ref d,1);
+    var scale=d.view.transform.localScale;scale.x*=Mathf.Lerp(1,Mathf.Max(.2f,Mathf.Abs(Mathf.Cos(u*10+d.phase))),arc);d.view.transform.localScale=scale;
+   }else{
+    if(!d.landed){d.landed=true;d.view.sortingOrder=PetalGroundSortingOrder;d.view.transform.position=d.target;d.view.transform.rotation=Quaternion.Euler(0,0,d.rotation+d.spin);LandedParticles++;}
+    ActiveLandedPetals++;float settle=Mathf.Clamp01((d.age-d.travel)/.16f);Size(ref d,1+.04f*Mathf.Sin(settle*Mathf.PI));
+    d.view.color=new Color(1,1,1,.92f*Mathf.Clamp01((d.life-d.age)/.55f));
+   }
+  }
   static void Size(ref Drop d,float factor,float stretch=1){float scale=d.size*factor/(d.view.sprite.bounds.size.x*.72f);d.view.transform.localScale=new Vector3(scale/stretch,scale*stretch,1);}
-  void Particles(float dt){ActiveParticles=ActivePaintMarks=0;for(int i=0;i<pool.Length;i++){ref var d=ref pool[i];if(!d.view.gameObject.activeSelf)continue;
+  void Particles(float dt){ActiveParticles=ActivePaintMarks=ActiveLandedPetals=0;for(int i=0;i<pool.Length;i++){ref var d=ref pool[i];if(!d.view.gameObject.activeSelf)continue;
    if(!Enabled(Effect.Fragments)){d.view.gameObject.SetActive(false);continue;}d.age+=dt;if(d.age>=d.life){d.view.gameObject.SetActive(false);continue;}ActiveParticles++;
+   if(d.petal){PetalStep(ref d);continue;}
    if(d.age<d.travel){float flight=1-Mathf.Pow(1-d.age/d.travel,2);d.view.transform.position=Vector2.Lerp(d.origin,d.target,flight);d.view.color=new Color(d.color.r,d.color.g,d.color.b,.9f);Size(ref d,Mathf.Lerp(.45f,.75f,flight),1.8f);}
    else{if(!d.landed){d.landed=true;d.view.sprite=particleSprites[d.sprite];d.view.sortingOrder=38;d.view.transform.position=d.target;d.view.transform.rotation=Quaternion.Euler(0,0,d.rotation);LandedParticles++;}
     ActivePaintMarks++;float settle=Mathf.Clamp01((d.age-d.travel)/.10f);Size(ref d,1+.12f*Mathf.Sin(settle*Mathf.PI));float fade=Mathf.Clamp01((d.life-d.age)/.40f);d.view.color=new Color(d.color.r,d.color.g,d.color.b,.90f*fade);}
   }PeakParticles=Mathf.Max(PeakParticles,ActiveParticles);}
   public void ResetPresentation(){Clock.Reset();shakeAge=9;pitchChain=0;pitchAt=-99;nextAudio=0;LastPitch=1;LastNoteIndex=0;
    if(view!=null)view.transform.localPosition=cameraRest;foreach(var t in targets.Values)ResetTarget(t.face);foreach(var trail in Trails)trail.Clear();
-   for(int i=0;i<pool.Length;i++)if(pool[i].view!=null)pool[i].view.gameObject.SetActive(false);if(voices!=null)foreach(var a in voices)if(a!=null)a.Stop();ActiveParticles=ActivePaintMarks=0;
+   for(int i=0;i<pool.Length;i++)if(pool[i].view!=null)pool[i].view.gameObject.SetActive(false);if(voices!=null)foreach(var a in voices)if(a!=null)a.Stop();ActiveParticles=ActivePaintMarks=ActiveLandedPetals=0;
   }
   void OnApplicationFocus(bool focus){if(!focus)ResetPresentation();}void OnApplicationPause(bool pause){if(pause)ResetPresentation();}void OnDisable(){ResetPresentation();}
   void OnDestroy(){if(flashMaterial!=null)Destroy(flashMaterial);foreach(var material in faceMaterials.Values)Destroy(material);foreach(var trail in Trails)trail.Dispose();notes?.Dispose();}

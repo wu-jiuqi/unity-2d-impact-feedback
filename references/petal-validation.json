@@ -1,0 +1,30 @@
+{
+  "galleryVersion": "0.2.2",
+  "sourceGameVersion": "0.5.1",
+  "platform": "Windows x64 / Built-in",
+  "build": {
+    "result": "Succeeded",
+    "unity": "6000.0.26f1",
+    "version": "0.2.2",
+    "errors": 0,
+    "warnings": 0
+  },
+  "assemblySha256": "1aabd86a8b641ed5a0dc70ed128690f424551ce1f39b347cd84d2ec2c1dc16e5",
+  "qa": {
+    "30": {
+      "passed": 148,
+      "failed": 0,
+      "projectRuleTests": "PASS 20 rule checks: burst accounting, overlap, final shot, duplicate destruction/loss, same-step win, stages, outcome and 100 resets."
+    },
+    "60": {
+      "passed": 148,
+      "failed": 0,
+      "projectRuleTests": "PASS 20 rule checks: burst accounting, overlap, final shot, duplicate destruction/loss, same-step win, stages, outcome and 100 resets."
+    }
+  },
+  "assetManifestFilesExist": 24,
+  "assetHashesVerified": 22,
+  "uniqueMetaGuids": 65,
+  "projectLaunchVerification": "13 unchanged methods/resources",
+  "limitations": "Other platforms and render pipelines were not tested."
+}

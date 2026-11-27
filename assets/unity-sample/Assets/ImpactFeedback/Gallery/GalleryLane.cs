@@ -29,7 +29,7 @@ namespace ImpactFeedback.Gallery {
     b.Collider=b.Root.gameObject.AddComponent<BoxCollider2D>();b.Collider.size=Vector2.one*BrickWidth;b.Collider.sharedMaterial=material;
     var artwork=New("Five color face");artwork.transform.SetParent(b.Root,false);b.Face=artwork.AddComponent<SpriteRenderer>();b.Face.sprite=FiveColourBricks.Frames(b.Color)[0];b.Face.sortingOrder=30;artwork.transform.localScale=Vector3.one*FiveColourBricks.Scale(b.Color,BrickWidth);b.Sequence=new SpriteSequence(b.Face);
    }
-   for(int i=0;i<VolleySize;i++)CreateBallBinding();var yarn=Resources.Load<Texture2D>("Gallery/thread_line_blue");Presenter.Initialize(Face,Ball.transform,Camera,GalleryArt.Particles(),Resources.Load<AudioClip>("Gallery/hit"),yarn);Presenter.SetBakedAlphaCutoff(.4f);
+   for(int i=0;i<VolleySize;i++)CreateBallBinding();var yarn=Resources.Load<Texture2D>("Gallery/thread_line_blue");Presenter.Initialize(Face,Ball.transform,Camera,GalleryArt.Particles(),Resources.Load<AudioClip>("Gallery/hit"),yarn);Presenter.SetBakedAlphaCutoff(.4f);Presenter.PetalLandingBounds=new Rect(-2.75f,-2.8f,5.5f,5.8f);
    for(int i=1;i<Bricks.Length;i++)Presenter.AddTarget(Bricks[i].Face);for(int i=1;i<VolleySize;i++)Presenter.AddTrail(Balls[i].transform,yarn);
    aim=New("Project aim view").AddComponent<LineRenderer>();aimMaterial=new Material(Shader.Find("Sprites/Default"));aim.sharedMaterial=aimMaterial;aim.useWorldSpace=true;aim.sortingOrder=10;aim.widthMultiplier=.025f;aim.startColor=new Color(.35f,.68f,.57f,.6f);aim.endColor=new Color(.35f,.68f,.57f,.1f);aim.positionCount=2;
    Production=new LaunchSession(Bindings,CreateBallBinding);Production.AimChanged=RenderAim;Reset();

@@ -8,11 +8,11 @@ using UnityEngine.UI;
 namespace ImpactFeedback.Gallery {
  public sealed class GalleryQA:MonoBehaviour {
   [Serializable]class Check{public string name;public bool passed;}
-  [Serializable]class Report{public string unity,assemblySha256,projectRuleTests,version="0.2.1";public int configuredFps,passed,failed;public float shakePeakPixels;public float[] scaleFrequencies;public List<Check> checks=new List<Check>();}
+  [Serializable]class Report{public string unity,assemblySha256,projectRuleTests,version="0.2.2";public int configuredFps,passed,failed;public float shakePeakPixels;public float[] scaleFrequencies;public List<Check> checks=new List<Check>();}
   Report report=new Report();string folder;ImpactGallery g;
   void C(bool passed,string name){report.checks.Add(new Check{name=name,passed=passed});if(passed)report.passed++;else report.failed++;Debug.Log("GALLERY_QA "+(passed?"PASS ":"FAIL ")+name);}
   string Arg(string key,string fallback){var a=Environment.GetCommandLineArgs();int i=Array.IndexOf(a,key);return i>=0&&i+1<a.Length?a[i+1]:fallback;}
-  void Capture(string name){GalleryCapture.Save(g,Path.Combine(folder,name+".png"));}
+  void Capture(string name){g.RefreshReadouts();GalleryCapture.Save(g,Path.Combine(folder,name+".png"));}
   void VerifyScaleAudio(){
    var bank=new SolfeggioScale();float[] expected={261.625565f,293.664768f,329.627557f,349.228231f,391.995436f,440,493.883301f,523.251131f};report.scaleFrequencies=new float[8];
    int perNote=Mathf.RoundToInt(SolfeggioScale.SampleRate*.26f);var combined=new float[perNote*8];
@@ -26,6 +26,33 @@ namespace ImpactFeedback.Gallery {
    using(var writer=new BinaryWriter(File.Create(Path.Combine(folder,"solfeggio-scale.wav")))){
     writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));writer.Write(36+combined.Length*2);writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVEfmt "));writer.Write(16);writer.Write((short)1);writer.Write((short)1);writer.Write(SolfeggioScale.SampleRate);writer.Write(SolfeggioScale.SampleRate*2);writer.Write((short)2);writer.Write((short)16);writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));writer.Write(combined.Length*2);foreach(float sample in combined)writer.Write((short)(Mathf.Clamp(sample,-1,1)*32767));
    }bank.Dispose();
+  }
+  void VerifyPetals(){
+   g.SetMode(0);g.Select(Effect.Fragments);g.SetProfile(new ImpactProfile());g.ResetScene();g.SetPaused(true);
+   var p=g.Active.Presenter;var brick=g.Active.Bricks[12];Vector3 anchor=brick.Root.position;Vector2 collider=brick.Collider.size;
+   C(g.Profile.petalFragments,"new profiles use 0.5.1 petal fragments");
+   C(!ImpactProfile.FromJson("{\"schemaVersion\":1}").petalFragments,"old JSON presets preserve legacy paint");
+   C(ImpactProfile.FromJson(JsonUtility.ToJson(g.Profile)).petalFragments,"petal preset round trip preserves mode");
+   var frames=PetalAtlas.Frames;C(frames.Length==16&&frames[0].texture.width==1254&&frames[15].rect.y==0,"original 4x4 petal atlas slices top-left first");
+   UnityEngine.Random.InitState(41051);var state=UnityEngine.Random.state;float expected=UnityEngine.Random.value;UnityEngine.Random.state=state;
+   p.Hit(Vector2.zero,Vector2.up,Color.red,ImpactKind.Break,brick.Face,.9f);p.Step(.3f,0);
+   C(UnityEngine.Random.value==expected,"petal emission does not consume the physics random source");UnityEngine.Random.state=state;
+   var petals=new List<SpriteRenderer>();bool white=true,tilted=false;foreach(var sr in p.GetComponentsInChildren<SpriteRenderer>())if(sr.gameObject.activeSelf&&sr.sprite.texture.name=="break-petals-atlas"){petals.Add(sr);white&=sr.color==Color.white;tilted|=Mathf.Abs(sr.transform.eulerAngles.z)>1;}
+   C(p.ActiveParticles==12&&petals.Count==12&&p.ActiveLandedPetals==0,"break emits twelve airborne petals from the shared pool");
+   C(white&&tilted,"full-colour petal renders use white tint and randomized rotation");
+   var positions=new Vector3[petals.Count];for(int i=0;i<petals.Count;i++)positions[i]=petals[i].transform.position;
+   p.Step(0,0);bool frozen=true;for(int i=0;i<petals.Count;i++)frozen&=petals[i].transform.position==positions[i];C(frozen,"zero presentation delta freezes petal flight");Capture("petals-airborne");
+   p.Step(1.25f,0);C(p.ActiveLandedPetals==12,"all petals land after the randomized flight interval");
+   bool bounded=true,depth=true;var bounds=p.PetalLandingBounds.Value;var unique=new HashSet<Vector2>();foreach(var sr in petals){var v=(Vector2)sr.transform.position;bounded&=v.x>=bounds.xMin&&v.x<=bounds.xMax&&v.y>=bounds.yMin&&v.y<=bounds.yMax;depth&=sr.sortingOrder==p.PetalGroundSortingOrder;unique.Add(v);}
+   C(bounded&&unique.Count>4&&depth,"petals settle at varied bounded points behind the bricks");Capture("petals-landed");
+   p.Step(.2f,0);C(p.ActiveLandedPetals==12,"landed petals remain visible during ground hold");
+   bool faded=false;for(int i=0;i<35;i++){p.Step(.05f,0);foreach(var sr in petals)if(sr.gameObject.activeSelf&&sr.color.a>0&&sr.color.a<.9f)faded=true;}
+   C(faded,"landed petals fade gradually before recycling");p.Step(5,0);C(p.ActiveParticles==0&&p.ActiveLandedPetals==0,"petals disappear and release every pool slot");
+   g.Profile.fragmentCount=64;for(int i=0;i<5;i++)p.Hit(Vector2.zero,Vector2.up,Color.red,ImpactKind.Break,brick.Face,.9f);p.Step(.1f,0);
+   int poolCount=0;foreach(Transform child in p.transform)if(child.name.StartsWith("Project pooled particle "))poolCount++;
+   C(p.ActiveParticles==128&&poolCount==128,"dense petal bursts reuse exactly 128 objects and drop excess");
+   g.Profile.fragments=false;p.Step(.01f,0);C(p.ActiveParticles==0,"disabling fragments clears petals immediately");g.Profile.fragments=true;p.Hit(Vector2.zero,Vector2.up,Color.red,ImpactKind.Break,brick.Face,.9f);p.Step(.1f,0);p.ResetPresentation();C(p.ActiveParticles==0&&p.ActiveLandedPetals==0,"reset clears both airborne and landed petals");
+   C(brick.Root.position==anchor&&brick.Collider.size==collider,"petals leave physics roots and colliders unchanged");g.SetPaused(false);g.ResetScene();
   }
   IEnumerator Start(){
    folder=Arg("--qa-out",Path.Combine(Application.persistentDataPath,"qa"));Directory.CreateDirectory(folder);report.unity=Application.unityVersion;report.configuredFps=int.Parse(Arg("--qa-fps","60"));Application.targetFrameRate=report.configuredFps;
@@ -44,10 +71,12 @@ namespace ImpactFeedback.Gallery {
    bool loaded=true;var loadedPositions=new HashSet<Vector2>();for(int i=0;i<5;i++){loaded&=Vector2.Distance(g.Active.Balls[i].transform.position,g.Active.Balls[i].position)<.0001f;loadedPositions.Add(g.Active.Balls[i].transform.position);}C(loaded&&loadedPositions.Count==5,"all five loaded ball visuals match their distinct waiting positions");
    Vector2 resting=g.Active.Ball.position;yield return new WaitForSecondsRealtime(.25f);
    C(g.Active.SpawnedThisVolley==0&&g.Active.Ball.position==resting&&g.Active.Presenter.ImpactCount==0,"startup waits for player and never auto launches");
-   g.SetMode(1);g.Select(Effect.Trail);g.Launch();C(g.Active.Production.HasQueuedShot&&g.Active.SpawnedThisVolley==0,"manual release uses the original queued-shot fixed-step entry");
+   g.SetMode(1);g.Select(Effect.Trail);float firstShotClock=g.Active.Production.SimulationClock;g.Launch();C(g.Active.Production.HasQueuedShot&&g.Active.SpawnedThisVolley==0,"manual release uses the original queued-shot fixed-step entry");
    yield return new WaitForSecondsRealtime(.05f);C(g.Active.SpawnedThisVolley==1,"second ball waits for the project 0.10 second interval");
    g.Launch();C(g.Active.Production.HasBufferedShot,"production launch accepts one release during a pending group");int beforeBuffered=g.Active.Production.SpawnCount;g.Launch();C(g.Active.Production.SpawnCount==beforeBuffered,"a second extra release cannot overwrite the original input buffer");
-   yield return new WaitForSecondsRealtime(.43f);C(g.Active.SpawnedThisVolley==5&&g.Baseline.SpawnedThisVolley==5,"one command emits exactly five balls in both worlds");
+   float volleyDeadline=Time.realtimeSinceStartup+4;
+   while(g.Active.Production.SimulationClock<firstShotClock+.44f&&Time.realtimeSinceStartup<volleyDeadline)yield return null;
+   C(g.Active.SpawnedThisVolley==5&&g.Baseline.SpawnedThisVolley==5,"one command emits exactly five balls in both worlds");
    C(!g.Active.CanLaunch,"original 0.55 second live-group cooldown is retained");
    bool trail=false;foreach(var t in g.Active.Presenter.Trails)trail|=t.Count>1;C(trail,"real moving balls produce independent fixed-step yarn paths");
    C(g.Active.Presenter.Trails[0].ShaderName=="ImpactFeedback/YarnTrail","trail uses the project's calibrated fiber/glow shader");
@@ -77,7 +106,8 @@ namespace ImpactFeedback.Gallery {
    C((stable-stable2).sqrMagnitude<.000001f,"camera shake does not change the stable aiming coordinate");
    C(brick.Root.position==anchor&&brick.Collider.size==collider,"stronger shake preserves brick physics positions");
    yield return new WaitForSecondsRealtime(.4f);C(g.Active.Presenter.CameraOffset.sqrMagnitude<.000001f,"stronger shake returns exactly to rest");
-   g.SetMode(2);g.SetProfile(ImpactProfile.GalleryDefault());g.ResetScene();int landed=g.Active.Presenter.LandedParticles;
+   VerifyPetals();
+   g.SetMode(2);g.SetProfile(ImpactProfile.GalleryDefault());g.Profile.petalFragments=false;g.ResetScene();int landed=g.Active.Presenter.LandedParticles;
    for(int i=0;i<20;i++)g.Active.Presenter.Hit(brick.Root.position,Vector2.up,FiveColourBricks.Tints[brick.Color],ImpactKind.Special,brick.Face,GalleryLane.BrickWidth);
    g.Active.Presenter.Step(.2f,0);C(g.Active.Presenter.ActiveParticles<=128&&g.Active.Presenter.PeakParticles<=128,"dense multi-brick paint bursts share a 128-slot cap");
    C(g.Active.Presenter.LandedParticles>landed&&g.Active.Presenter.ActivePaintMarks>0,"flying drops land as persistent paint marks");

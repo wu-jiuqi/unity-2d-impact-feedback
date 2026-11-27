@@ -1,5 +1,7 @@
 # Windows 展馆
 
+0.2.2 已同步游戏 0.5.1 花瓣。选择“碎片”，用参数区下方“破碎样式”切换花瓣／旧颜料；新建、项目参考和教学预设默认花瓣，旧 JSON 仍保持颜料。花瓣参数与集成见 [花瓣说明](petals.md)。
+
 ## 启动与操作
 
 解压发布ZIP后运行 `Windows/ImpactFeedbackGallery.exe`。不需要Unity编辑器；EXE与`UnityPlayer.dll`、`MonoBleedingEdge`、`ImpactFeedbackGallery_Data`等同目录文件必须一同保留。
@@ -42,7 +44,7 @@ python ./scripts/package.py
 python ./scripts/install.py --with-windows
 ```
 
-打包前必须有成功构建与两个帧率的运行结果。输出 `dist/unity-2d-impact-feedback-0.2.1.zip`（含完整Windows展示）与`dist/ImpactFeedbackGallery-Windows-x64-0.2.1.zip`。文件哈希写入 `dist/delivery.json`，检查摘要附在压缩包中。大体积构建产物放私有GitHub Release，不提交到源码Git历史。
+打包前必须有成功构建与两个帧率的运行结果。输出 `dist/unity-2d-impact-feedback-0.2.2.zip`（含完整Windows展示）与`dist/ImpactFeedbackGallery-Windows-x64-0.2.2.zip`。文件哈希写入 `dist/delivery.json`，检查摘要附在压缩包中。大体积构建产物放 GitHub Release，不提交到源码 Git 历史。
 
 安装脚本把仓库内skill和示例复制到当前用户 `.codex/skills/unity-2d-impact-feedback`，排除Library、Temp、日志、Git及发布ZIP。传入`--with-windows`时将已构建展示复制到该skill的`Windows/`目录。默认不覆盖已存在的skill目录；更新时显式传`--replace`，仅更新本skill管理的文件。
 

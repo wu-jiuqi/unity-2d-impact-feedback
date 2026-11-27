@@ -1,0 +1,47 @@
+{
+  "generator": "built-in image_gen",
+  "prompt": "Use case: stylized-concept. Asset type: production Unity 2D mobile game particle sprite atlas. Create ONE square transparent PNG atlas containing exactly 16 isolated individual flower petals in an exact evenly spaced 4 by 4 grid of equal square cells. Each cell contains ONE single detached petal centered, entirely within central 65 percent of cell, generous empty transparent padding; no overlaps. Colors per column: coral pink, warm buttery yellow / peach, mint turquoise, lilac purple. Each row a distinct convincing curved petal silhouette and view: rounded cherry blossom with tiny notch, softly folded rose teardrop, elongated daisy petal, curled side-view petal. Match cozy pastel cream-jelly casual garden mobile game art: soft matte painterly volume, gentle light highlight and delicate central fold, clean crisp alpha silhouette, readable at tiny size. Rich cheerful colors, subtle organic variation. No flowers, no leaves, no stems, no clusters, no sparkles, no cast shadows outside the petal, no glows, no outlines, no labels, no text, no borders, no background or checkerboard. Exact 4x4 regular grid for automatic slicing. Actual transparent background.",
+  "asset": "break-petals-atlas.png",
+  "sha256": "2d8126aa8be22bbb8574d891b85c3caa8b7e331302bde2375aa534575b44d537",
+  "size": [
+    1254,
+    1254
+  ],
+  "alpha": true,
+  "layout": {
+    "columns": 4,
+    "rows": 4,
+    "indexOrigin": "top-left"
+  },
+  "runtime": "Assets/Scripts/World/CombatFeedback79.cs",
+  "settings": {
+    "petalsPerBreak": 12,
+    "poolSlots": 128,
+    "flightSeconds": [
+      0.85,
+      1.5
+    ],
+    "holdSecondsAtDefaultProfile": [
+      1.35,
+      1.85
+    ],
+    "fadeSeconds": 0.55,
+    "landedSortingOrder": -22
+  },
+  "notes": [
+    "Original AI-generated project artwork; no third-party image inputs.",
+    "Full-color sprites rendered with white tint; brick tint does not multiply atlas colors.",
+    "Presentation uses independent random source; no changes to damage, collisions, ball speed or simulation.",
+    "paintMinRadius/paintMaxRadius/paintLife retained as compatible scatter/ground-hold controls.",
+    "Airborne motion uses display-space curved paths and flutter, converted through BoardDisplay.Inverse for existing material."
+  ],
+  "sourceGameVersion": "0.5.1",
+  "sourceRuntimeSha256": "3959a9e444ebe6b7ffa10252e58aa3ac1fd5a54c8cb6294c6ac6678a3ad1b2e0",
+  "adaptation": [
+    "Reuse the original full-colour atlas, flutter, arc, randomized landing and fade.",
+    "Plain world-space gallery has no BoardDisplay projection; host supplies optional PetalLandingBounds.",
+    "Gallery ground order defaults to 20 (behind bricks); source game uses -22.",
+    "Shared 128-slot pool and presentation delta; fragment controls adjust count, speed, size and ground hold.",
+    "New profiles default to petals; JSON without petalFragments retains legacy paint."
+  ]
+}

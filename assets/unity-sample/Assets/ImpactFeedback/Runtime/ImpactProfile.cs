@@ -12,6 +12,7 @@ namespace ImpactFeedback {
   public float shakeHeight=.0032f,shakeMs=320;
   public float hitStopMs=25,hitStopCooldownMs=500,hitStopBudgetMs=30;
   public float slowScale=.55f,slowMs=160;
+  public bool petalFragments=true;
   public int fragmentCount=12;
   public float fragmentSpeed=4,fragmentSize=.16f,fragmentLife=1.2f;
   public float paintMinRadius=.45f,paintMaxRadius=2.8f;
@@ -27,6 +28,7 @@ namespace ImpactFeedback {
    if(json.IndexOf("\"scaleNotes\"",StringComparison.Ordinal)<0)p.scaleNotes=8;
    if(json.IndexOf("\"noteIntervalMs\"",StringComparison.Ordinal)<0)p.noteIntervalMs=70;
    if(json.IndexOf("\"noteVolume\"",StringComparison.Ordinal)<0)p.noteVolume=.8f;
+   if(json.IndexOf("\"petalFragments\"",StringComparison.Ordinal)<0)p.petalFragments=false;
    p.Clamp();return p;
   }
   public void Clamp(){

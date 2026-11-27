@@ -4,7 +4,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import json,hashlib,re,subprocess,sys
 
 ROOT=Path(__file__).resolve().parents[1]
-VERSION='0.2.1'
+VERSION='0.2.2'
 EXCLUDED={'.git','Library','Temp','Obj','Logs','UserSettings','.vs','__pycache__','Builds','dist','evidence'}
 def source_files():
  for p in ROOT.rglob('*'):

@@ -1,5 +1,7 @@
 # 八项效果与调参
 
+0.2.2 碎片默认使用游戏 0.5.1 的多色花瓣，旧颜料可在展馆切换；`petalFragments`、随机落地与停留／淡出参数见 [花瓣说明](petals.md)。两种模式共享固定 128 槽池。
+
 ## 单位与预设
 
 完整字段定义见 `assets/unity-sample/Assets/ImpactFeedback/Runtime/ImpactProfile.cs`。`new ImpactProfile()` 是从项目参数整理的参考起点；`ImpactProfile.GalleryDefault()` 为展馆默认预设，震屏为视口高度1.4%／240ms并保留首下完整冲击；`ImpactProfile.Teaching()` 进一步放大短促效果便于观察。项目参考值仍可由左侧按钮恢复。独立示例的普通视觉、粒子运动及音频计数经过宿主适配，并不宣称与完整游戏逐帧一致。正式接入应以目标宿主的实际参数和调用链为准。

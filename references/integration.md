@@ -2,7 +2,7 @@
 
 ## 可复用文件
 
-仅拷贝 `Assets/ImpactFeedback/Runtime` 可获得参数、时钟、闪白 Shader 和表现组件。`ImpactPresenter` 不依赖 BounceBusters 业务类、UGUI 或 DOTween。宿主提供一个 SpriteRenderer 视觉子层、运动物体 Transform、相机、粒子精灵数组、音频和拖尾纹理。完整展示工程另有 UGUI 和既有按钮补间依赖。
+复制 `Assets/ImpactFeedback/Runtime` 及 `Assets/Resources/ImpactFeedback` 可获得参数、时钟、闪白 Shader、花瓣图集和表现组件。`ImpactPresenter` 不依赖 BounceBusters 业务类、UGUI 或 DOTween。宿主提供一个 SpriteRenderer 视觉子层、运动物体 Transform、相机、旧颜料粒子精灵数组、音频和拖尾纹理。完整展示工程另有 UGUI 和既有按钮补间依赖。花瓣落点、排序和兼容字段见 [花瓣说明](petals.md)。
 
 ```csharp
 using ImpactFeedback;

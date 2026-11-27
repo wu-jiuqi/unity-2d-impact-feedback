@@ -113,5 +113,10 @@
     "source": "Scripts/UI/UIBounce.cs",
     "destination": "assets/unity-sample/Assets/ImpactFeedback/Gallery/UIBounce.cs",
     "adaptation": "Namespace and host-game gates only; tween curves, timing and mesh deformation retained."
+  },
+  {
+    "source": "Resources/Art/BattleGarden050/break-petals-atlas.png",
+    "destination": "assets/unity-sample/Assets/Resources/ImpactFeedback/break-petals-atlas.png",
+    "sha256": "2d8126aa8be22bbb8574d891b85c3caa8b7e331302bde2375aa534575b44d537"
   }
 ]
